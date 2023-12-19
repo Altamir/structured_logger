@@ -1,3 +1,10 @@
+## 0.0.2
+
+* Fix readme.
+* Fix example.
+* fix exports.
+
+
 ## 0.0.1
 
 * Initial release of the `structured_logger` package.
