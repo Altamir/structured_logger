@@ -1,7 +1,7 @@
 name: structured_logger
 description: Another logging package, but for structured logging, with the concept of sinks for log output
 version: 0.0.2
-homepage: https://github.com/Altamir
+homepage: https://github.com/Altamir/structured_logger
 
 environment:
   sdk: '>=3.1.5 <4.0.0'

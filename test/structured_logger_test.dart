@@ -1,9 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:structured_logger/src/log_sinks/default_sink.dart';
-import 'package:structured_logger/src/log_sinks/simple_line_sink.dart';
-import 'package:structured_logger/src/logger/log_level.dart';
-import 'package:structured_logger/src/logger/log_sink.dart';
-import 'package:structured_logger/src/logger/structured_logger.dart';
+import 'package:structured_logger/structured_logger.dart';
 
 void main() {
   group('StructureLogger', () {
