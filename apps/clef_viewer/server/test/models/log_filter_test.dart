@@ -1,6 +1,7 @@
 import 'package:clef_viewer_server/models/filter_constants.dart';
 import 'package:clef_viewer_server/models/log_entry.dart';
 import 'package:clef_viewer_server/models/log_filter.dart';
+import 'package:clef_viewer_server/models/property_filter.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -82,10 +83,21 @@ void main() {
       expect(params, isEmpty);
     });
 
+    test('parses multiple properties as AND filter', () {
+      final filter = LogFilter.fromQueryParams({
+        'property': 'UserId=42;Screen=Home',
+      });
+      filter.validate();
+      final (where, params) = filter.toSql();
+      expect(where, contains('json_extract'));
+      expect(where.split('json_extract').length, 3);
+      expect(params, contains('42'));
+      expect(params, contains('Home'));
+    });
+
     test('matches numeric property as string', () {
       const filter = LogFilter(
-        propertyKey: 'UserId',
-        propertyValue: '42',
+        properties: [PropertyFilter(key: 'UserId', value: '42')],
       );
       const entry = LogEntry(
         timestamp: '2024-01-01T00:00:00Z',
@@ -96,10 +108,31 @@ void main() {
       expect(filter.matches(entry), isTrue);
     });
 
+    test('matches all properties when multiple are set', () {
+      const filter = LogFilter(
+        properties: [
+          PropertyFilter(key: 'UserId', value: '42'),
+          PropertyFilter(key: 'Screen', value: 'Home'),
+        ],
+      );
+      const matching = LogEntry(
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        properties: {'UserId': 42, 'Screen': 'Home'},
+      );
+      const partial = LogEntry(
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        properties: {'UserId': 42, 'Screen': 'Other'},
+      );
+
+      expect(filter.matches(matching), isTrue);
+      expect(filter.matches(partial), isFalse);
+    });
+
     test('matches dotted Serilog property key client-side', () {
       const filter = LogFilter(
-        propertyKey: 'Source.Context',
-        propertyValue: 'my-app',
+        properties: [PropertyFilter(key: 'Source.Context', value: 'my-app')],
       );
       const matching = LogEntry(
         timestamp: '2024-01-01T00:00:00Z',

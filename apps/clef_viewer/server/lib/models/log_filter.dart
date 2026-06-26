@@ -1,5 +1,6 @@
 import 'filter_constants.dart';
 import 'log_entry.dart';
+import 'property_filter.dart';
 import 'validation_exception.dart';
 
 export 'validation_exception.dart';
@@ -11,8 +12,7 @@ class LogFilter {
   final List<String>? levels;
   final String? deviceId;
   final String? eventId;
-  final String? propertyKey;
-  final String? propertyValue;
+  final List<PropertyFilter> properties;
   final String? search;
 
   const LogFilter({
@@ -21,8 +21,7 @@ class LogFilter {
     this.levels,
     this.deviceId,
     this.eventId,
-    this.propertyKey,
-    this.propertyValue,
+    this.properties = const [],
     this.search,
   });
 
@@ -37,16 +36,8 @@ class LogFilter {
           .toList();
     }
 
-    String? propertyKey;
-    String? propertyValue;
-    final propertyParam = params['property'];
-    if (propertyParam != null && propertyParam.isNotEmpty) {
-      final eqIndex = propertyParam.indexOf('=');
-      if (eqIndex > 0) {
-        propertyKey = propertyParam.substring(0, eqIndex);
-        propertyValue = propertyParam.substring(eqIndex + 1);
-      }
-    }
+    final propertyFilters =
+        PropertyFilterCodec.parseParam(params['property']);
 
     return LogFilter(
       from: _parseDate(params['from']),
@@ -54,8 +45,7 @@ class LogFilter {
       levels: levels,
       deviceId: _parseDeviceId(params['device_id']),
       eventId: _emptyToNull(params['event_id']),
-      propertyKey: propertyKey,
-      propertyValue: propertyValue,
+      properties: propertyFilters,
       search: _emptyToNull(params['search']),
     );
   }
@@ -82,7 +72,7 @@ class LogFilter {
     if (from != null && to != null && from!.isAfter(to!)) {
       throw ValidationException('From date must be before to date');
     }
-    PropertyKeyValidator.validate(propertyKey);
+    PropertyFilterCodec.validateAll(properties);
   }
 
   bool get isEmpty =>
@@ -91,7 +81,7 @@ class LogFilter {
       (levels == null || levels!.isEmpty) &&
       deviceId == null &&
       eventId == null &&
-      propertyKey == null &&
+      properties.isEmpty &&
       search == null;
 
   /// Returns SQL WHERE clause (without "WHERE") and bound parameters.
@@ -124,15 +114,15 @@ class LogFilter {
       clauses.add('event_id = ?');
       parameters.add(eventId);
     }
-    if (propertyKey != null) {
-      final path = PropertyKeyValidator.jsonExtractPath(propertyKey!);
-      if (propertyValue == FilterConstants.emptySentinel) {
+    for (final property in properties) {
+      final path = PropertyKeyValidator.jsonExtractPath(property.key);
+      if (property.value == FilterConstants.emptySentinel) {
         clauses.add("json_extract(properties, '$path') IS NULL");
       } else {
         clauses.add(
           "CAST(json_extract(properties, '$path') AS TEXT) = ?",
         );
-        parameters.add(propertyValue ?? '');
+        parameters.add(property.value);
       }
     }
     if (search != null) {
@@ -170,13 +160,12 @@ class LogFilter {
       }
     }
     if (eventId != null && entry.eventId != eventId) return false;
-    if (propertyKey != null) {
-      final value = entry.properties[propertyKey!];
-      if (propertyValue == FilterConstants.emptySentinel) {
+    for (final property in properties) {
+      final value = entry.properties[property.key];
+      if (property.value == FilterConstants.emptySentinel) {
         if (value != null) return false;
-      } else {
-        final expected = propertyValue ?? '';
-        if (value?.toString() != expected) return false;
+      } else if (value?.toString() != property.value) {
+        return false;
       }
     }
     if (search != null) {

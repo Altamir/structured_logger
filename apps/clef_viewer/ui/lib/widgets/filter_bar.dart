@@ -8,6 +8,7 @@ import '../models/log_filter.dart';
 import '../services/device_suggestion_cache.dart';
 import '../theme/clef_design_system.dart';
 import '../utils/active_filter_chip_factory.dart';
+import '../utils/property_filter_codec.dart';
 import 'active_filter_chips.dart';
 import 'device_id_field.dart';
 import 'level_filter_field.dart';
@@ -54,7 +55,7 @@ class FilterBarState extends State<FilterBar> {
       text: _deviceIdToDisplay(widget.initialFilter.deviceId),
     );
     _propertyController = TextEditingController(
-      text: widget.initialFilter.property ?? '',
+      text: PropertyFilterCodec.encodeField(widget.initialFilter.properties),
     );
     _searchController = TextEditingController(
       text: widget.initialFilter.search ?? '',
@@ -87,7 +88,7 @@ class FilterBarState extends State<FilterBar> {
       to: _to,
       levels: LevelOptions.filterFromUiSelection(_selectedLevels),
       deviceId: _deviceIdFromController(),
-      property: _emptyToNull(_propertyController.text),
+      properties: PropertyFilterCodec.parseField(_propertyController.text),
       search: _emptyToNull(_searchController.text),
     );
   }
@@ -103,7 +104,11 @@ class FilterBarState extends State<FilterBar> {
   }
 
   void applyPropertyFilter(String propertyParam) {
-    _propertyController.text = propertyParam;
+    final merged = PropertyFilterCodec.upsert(
+      PropertyFilterCodec.parseField(_propertyController.text),
+      propertyParam,
+    );
+    _propertyController.text = PropertyFilterCodec.encodeField(merged);
     apply();
   }
 
@@ -121,7 +126,7 @@ class FilterBarState extends State<FilterBar> {
       _to = filter.to;
       _selectedLevels = LevelOptions.uiSelectionFromFilter(filter.levels);
       _deviceController.text = _deviceIdToDisplay(filter.deviceId);
-      _propertyController.text = filter.property ?? '';
+      _propertyController.text = PropertyFilterCodec.encodeField(filter.properties);
       _searchController.text = filter.search ?? '';
       _validationError = null;
       _appliedFilter = filter;
@@ -283,7 +288,7 @@ class FilterBarState extends State<FilterBar> {
                   controller: _propertyController,
                   decoration: ClefDs.inputDecoration(
                     context: context,
-                    label: 'Property (k=v)',
+                    label: 'Property (k=v; k2=v2)',
                   ),
                 ),
               ),

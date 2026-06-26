@@ -11,7 +11,7 @@ void main() {
     const filter = LogFilter(
       levels: ['error'],
       deviceId: 'my-app',
-      property: 'Screen=Home',
+      properties: ['Screen=Home'],
       search: 'timeout',
     );
 

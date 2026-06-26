@@ -46,10 +46,10 @@ class GroupPanel extends StatefulWidget {
       case 'property':
         if (key == '(empty)') {
           return current.copyWith(
-            property: '$propertyName=${FilterConstants.emptySentinel}',
+            properties: ['$propertyName=${FilterConstants.emptySentinel}'],
           );
         }
-        return current.copyWith(property: '$propertyName=$key');
+        return current.copyWith(properties: ['$propertyName=$key']);
       case 'time':
         final from = DateTime.parse(key).toUtc();
         DateTime to;

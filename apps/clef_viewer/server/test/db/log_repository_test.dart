@@ -69,6 +69,27 @@ void main() {
     expect(result.total, 1);
   });
 
+  test('filters by multiple properties with AND', () async {
+    await repository.insert(
+      entry(
+        ts: '2024-01-01T00:00:01Z',
+        properties: {'UserId': '42', 'Screen': 'Home'},
+      ),
+    );
+    await repository.insert(
+      entry(
+        ts: '2024-01-01T00:00:02Z',
+        properties: {'UserId': '42', 'Screen': 'Other'},
+      ),
+    );
+
+    final filter = LogFilter.fromQueryParams({
+      'property': 'UserId=42;Screen=Home',
+    });
+    final result = await repository.query(filter);
+    expect(result.total, 1);
+  });
+
   test('filters by property key=value', () async {
     await repository.insert(
       entry(ts: '2024-01-01T00:00:01Z', properties: {'UserId': '42'}),

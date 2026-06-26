@@ -1,5 +1,6 @@
 import 'filter_constants.dart';
 import 'log_entry.dart';
+import '../utils/property_filter_codec.dart';
 
 class LogFilter {
   final DateTime? from;
@@ -7,7 +8,7 @@ class LogFilter {
   final List<String> levels;
   final String? deviceId;
   final String? eventId;
-  final String? property;
+  final List<String> properties;
   final String? search;
 
   const LogFilter({
@@ -16,7 +17,7 @@ class LogFilter {
     this.levels = const [],
     this.deviceId,
     this.eventId,
-    this.property,
+    this.properties = const [],
     this.search,
   });
 
@@ -26,7 +27,7 @@ class LogFilter {
       levels.isNotEmpty ||
       deviceId != null ||
       (eventId != null && eventId!.isNotEmpty) ||
-      (property != null && property!.isNotEmpty) ||
+      properties.isNotEmpty ||
       (search != null && search!.isNotEmpty);
 
   String? validate() {
@@ -47,8 +48,8 @@ class LogFilter {
     if (eventId != null && eventId!.isNotEmpty) {
       params['event_id'] = eventId!;
     }
-    if (property != null && property!.isNotEmpty) {
-      params['property'] = property!;
+    if (properties.isNotEmpty) {
+      params['property'] = PropertyFilterCodec.encodeField(properties);
     }
     if (search != null && search!.isNotEmpty) params['search'] = search!;
     return params;
@@ -76,16 +77,15 @@ class LogFilter {
     if (eventId != null && eventId!.isNotEmpty && entry.eventId != eventId) {
       return false;
     }
-    if (property != null && property!.isNotEmpty) {
-      final eq = property!.indexOf('=');
-      if (eq > 0) {
-        final key = property!.substring(0, eq);
-        final value = property!.substring(eq + 1);
-        if (value == FilterConstants.emptySentinel) {
-          if (entry.properties[key] != null) return false;
-        } else if (entry.properties[key]?.toString() != value) {
-          return false;
-        }
+    for (final property in properties) {
+      final eq = property.indexOf('=');
+      if (eq <= 0) continue;
+      final key = property.substring(0, eq);
+      final value = property.substring(eq + 1);
+      if (value == FilterConstants.emptySentinel) {
+        if (entry.properties[key] != null) return false;
+      } else if (entry.properties[key]?.toString() != value) {
+        return false;
       }
     }
     if (search != null && search!.isNotEmpty) {
@@ -110,7 +110,7 @@ class LogFilter {
     List<String>? levels,
     Object? deviceId = _unset,
     Object? eventId = _unset,
-    Object? property = _unset,
+    List<String>? properties,
     Object? search = _unset,
   }) {
     return LogFilter(
@@ -119,7 +119,7 @@ class LogFilter {
       levels: levels ?? this.levels,
       deviceId: identical(deviceId, _unset) ? this.deviceId : deviceId as String?,
       eventId: identical(eventId, _unset) ? this.eventId : eventId as String?,
-      property: identical(property, _unset) ? this.property : property as String?,
+      properties: properties ?? this.properties,
       search: identical(search, _unset) ? this.search : search as String?,
     );
   }

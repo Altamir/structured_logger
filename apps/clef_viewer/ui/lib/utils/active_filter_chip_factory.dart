@@ -1,6 +1,7 @@
 import '../models/active_filter_chip_data.dart';
 import '../models/filter_constants.dart';
 import '../models/log_filter.dart';
+import 'property_filter_codec.dart';
 
 class ActiveFilterChipFactory {
   static List<ActiveFilterChipData> fromFilter(
@@ -35,12 +36,20 @@ class ActiveFilterChipFactory {
       );
     }
 
-    if (filter.property != null && filter.property!.isNotEmpty) {
+    for (final property in filter.properties) {
       chips.add(
         ActiveFilterChipData(
-          id: 'property:${filter.property}',
-          label: 'property: ${filter.property}',
-          onRemove: () => onApply(filter.copyWith(property: null)),
+          id: 'property:$property',
+          label: 'property: $property',
+          onRemove: () {
+            final key = PropertyFilterCodec.keyOf(property);
+            if (key == null) return;
+            onApply(
+              filter.copyWith(
+                properties: PropertyFilterCodec.removeKey(filter.properties, key),
+              ),
+            );
+          },
         ),
       );
     }

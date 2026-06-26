@@ -205,7 +205,32 @@ void main() {
     key.currentState!.applyPropertyFilter('UserId=42');
     await tester.pump();
 
-    expect(applied?.property, 'UserId=42');
+    expect(applied?.properties, ['UserId=42']);
     expect(find.text('property: UserId=42'), findsOneWidget);
+  });
+
+  testWidgets('applyPropertyFilter accumulates multiple properties', (tester) async {
+    LogFilter? applied;
+    final key = GlobalKey<FilterBarState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilterBar(
+            key: key,
+            initialFilter: const LogFilter(properties: ['UserId=42']),
+            onApply: (f) => applied = f,
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    key.currentState!.applyPropertyFilter('Screen=Home');
+    await tester.pump();
+
+    expect(applied?.properties, containsAll(['UserId=42', 'Screen=Home']));
+    expect(find.text('property: UserId=42'), findsOneWidget);
+    expect(find.text('property: Screen=Home'), findsOneWidget);
   });
 }
