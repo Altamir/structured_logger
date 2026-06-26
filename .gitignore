@@ -25,11 +25,11 @@ migrate_working_dir/
 # Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
 /pubspec.lock
 # Dart API docs gerados por `dart doc` (preserva .md do Docusaurus)
-doc/api/**
-!doc/api/
-!doc/api/**
-!doc/api/*.md
-!doc/api/_category_.json
+docs/api/**
+!docs/api/
+!docs/api/**
+!docs/api/*.md
+!docs/api/_category_.json
 .dart_tool/
 .packages
 build/
