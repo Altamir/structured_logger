@@ -2,13 +2,6 @@ name: CLEF Viewer images
 
 on:
   workflow_call:
-  push:
-    branches:
-      - master
-      - main
-    paths:
-      - 'apps/clef_viewer/**'
-      - '.github/workflows/clef-viewer-images.yml'
   workflow_dispatch:
 
 concurrency:

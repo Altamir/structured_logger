@@ -1,18 +1,22 @@
 # Build context: repository root (as declared in .github/workflows/clef-viewer-images.yml)
-# After monorepo: pub workspaces require ancestor manifests + root lock for resolution.
-# See design doc "Docker Build Context" section for rationale.
+# After monorepo: pub workspaces require ancestor manifests (for all members listed in root)
+# + root lock for resolution. Sub-locks are gitignored. See design doc for rationale.
 FROM dart:stable AS build
 
 WORKDIR /build
 
 # 1. Copy only manifests first (better layer cache for pub get)
+# Note: all workspace members' pubspec.yaml are required because root pubspec.yaml
+# declares the full workspace list.
 COPY pubspec.yaml pubspec.lock ./
 COPY packages/structured_logger/pubspec.yaml packages/structured_logger/
+COPY packages/structured_logger_dio_interceptor/pubspec.yaml packages/structured_logger_dio_interceptor/
 COPY apps/clef_viewer/server/pubspec.yaml apps/clef_viewer/server/
+COPY apps/clef_viewer/ui/pubspec.yaml apps/clef_viewer/ui/
 
-# 2. Copy full sources (no sub-package pubspec.lock is copied or needed;
-#    root lock + workspace resolution provides reproducibility. The
-#    **/pubspec.lock !pubspec.lock .gitignore rule from PR 1 ensures this.)
+# 2. Copy full sources for the packages we actually build (manifests for all
+#    workspace members were copied above so pub get at root can resolve the
+#    workspace list declared in root pubspec.yaml).
 COPY packages/structured_logger/ packages/structured_logger/
 COPY apps/clef_viewer/server/ apps/clef_viewer/server/
 

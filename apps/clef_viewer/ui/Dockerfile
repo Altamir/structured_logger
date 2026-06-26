@@ -1,5 +1,6 @@
 # Build context: repository root (structured_logger/)
 # Uses Debian + Flutter SDK (no ghcr.io — avoids docker-credential-desktop issues on ghcr).
+# Note: no ui/pubspec.lock is copied (gitignored in monorepo); flutter pub get resolves it.
 
 FROM debian:bookworm-slim AS flutter-base
 
@@ -23,7 +24,8 @@ FROM flutter-base AS build
 ARG CLEF_VIEWER_VERSION=dev
 
 WORKDIR /app
-COPY apps/clef_viewer/ui/pubspec.yaml apps/clef_viewer/ui/pubspec.lock ./
+# Copy only pubspec.yaml (pubspec.lock is gitignored in monorepo; flutter pub get will resolve)
+COPY apps/clef_viewer/ui/pubspec.yaml ./
 RUN flutter pub get
 
 COPY apps/clef_viewer/ui .

@@ -2,14 +2,6 @@ name: Deploy documentation
 
 on:
   workflow_call:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - 'docs/**'
-      - 'website/**'
-      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
 concurrency:
