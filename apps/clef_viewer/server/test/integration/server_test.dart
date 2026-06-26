@@ -402,6 +402,24 @@ not-json
       client.close(force: true);
     });
 
+    test('stream delivers connected comment over real TCP', () async {
+      final client = HttpClient();
+      final request = await client.getUrl(uri('/api/events/stream'));
+      final response = await request.close();
+      expect(response.statusCode, 200);
+
+      final completer = Completer<void>();
+      final sub = response.transform(utf8.decoder).listen((chunk) {
+        if (chunk.contains('connected') && !completer.isCompleted) {
+          completer.complete();
+        }
+      });
+
+      await completer.future.timeout(const Duration(seconds: 2));
+      await sub.cancel();
+      client.close(force: true);
+    });
+
     test('POST ingest delivers event on SSE stream through router stack', () async {
       final db = openMemoryDatabase();
       final repo = LogRepository(db, maxRows: 100000);
@@ -430,7 +448,7 @@ not-json
         Request('GET', Uri.parse('http://localhost/api/events/stream')),
       );
       expect(sseResponse.statusCode, 200);
-      expect(sseResponse.headers['content-type'], 'text/event-stream');
+      expect(sseResponse.headers['content-type'], contains('text/event-stream'));
 
       final sub = sseResponse.read().transform(utf8.decoder).listen((chunk) {
         buffer += chunk;

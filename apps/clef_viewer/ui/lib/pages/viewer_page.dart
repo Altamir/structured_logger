@@ -42,6 +42,7 @@ class _ViewerPageState extends State<ViewerPage> {
   List<GroupResult> _groups = [];
 
   final _filterBarKey = GlobalKey<FilterBarState>();
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -50,6 +51,7 @@ class _ViewerPageState extends State<ViewerPage> {
     _sse = SseClient()..onReconnect = _onSseReconnect;
     _loadInitial();
     _connectSse();
+    _startPolling();
   }
 
   @override
@@ -64,29 +66,42 @@ class _ViewerPageState extends State<ViewerPage> {
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _sseSub?.cancel();
     _sse.dispose();
     super.dispose();
   }
 
-  Future<void> _loadInitial({bool silent = false}) async {
+  /// Fallback when SSE is blocked by proxy — refresh every 3s without spinner.
+  void _startPolling() {
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!_paused && mounted) {
+        _loadInitial(silent: true, refreshGroups: false);
+      }
+    });
+  }
+
+  Future<void> _loadInitial({bool silent = false, bool refreshGroups = true}) async {
     if (!silent) setState(() => _loading = true);
     try {
       final result = await _api.fetchEvents(_filter, limit: 100);
+      if (!mounted) return;
       setState(() {
         _events = result.events;
         _total = result.total;
         if (!silent) _loading = false;
       });
     } catch (e) {
-      if (!silent) setState(() => _loading = false);
-      if (mounted) {
+      if (!silent && mounted) setState(() => _loading = false);
+      if (!silent && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load events: $e')),
         );
       }
     }
-    await _loadGroups();
+    if (refreshGroups) {
+      await _loadGroups();
+    }
   }
 
   Future<void> _loadGroups() async {

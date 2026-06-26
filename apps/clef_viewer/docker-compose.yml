@@ -55,6 +55,7 @@ services:
       - traefik.http.routers.clef-ui.service=clef-ui
       - traefik.http.services.clef-ui.loadbalancer.server.port=80
       - traefik.http.middlewares.clef-sse.buffering.maxResponseBodyBytes=0
+      - traefik.http.services.clef-ui.loadbalancer.responseForwarding.flushInterval=1ms
       - traefik.http.routers.clef-ui.middlewares=clef-sse
     restart: unless-stopped
 

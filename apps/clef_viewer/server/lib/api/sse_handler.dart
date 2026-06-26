@@ -11,46 +11,36 @@ class SseHandler {
 
   SseHandler({required this.broadcaster});
 
-  Future<Response> handle(Request request) async {
+  Response handle(Request request) {
     final controller = StreamController<List<int>>();
-    StreamSubscription<LogEntry>? logSub;
-    Timer? heartbeat;
 
-    void sendLog(Object data) {
-      // Default SSE message (no custom event type) — works with EventSource.onMessage.
-      final payload = 'data: ${jsonEncode(data)}\n\n';
-      controller.add(utf8.encode(payload));
-    }
+    controller.add(utf8.encode(': connected\n\n'));
 
-    void sendHeartbeat() {
-      // SSE comment line — keeps connection alive without client events.
-      controller.add(utf8.encode(': heartbeat\n\n'));
-    }
-
-    sendHeartbeat();
-
-    logSub = broadcaster.stream.listen((entry) {
-      sendLog(entry.toJson());
+    final logSub = broadcaster.stream.listen((LogEntry entry) {
+      controller.add(utf8.encode('data: ${jsonEncode(entry.toJson())}\n\n'));
     });
 
-    heartbeat = Timer.periodic(const Duration(seconds: 30), (_) {
-      sendHeartbeat();
+    final heartbeat = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!controller.isClosed) {
+        controller.add(utf8.encode(': heartbeat\n\n'));
+      }
     });
 
-    controller.onCancel = () async {
-      await logSub?.cancel();
-      heartbeat?.cancel();
-      await controller.close();
+    controller.onCancel = () {
+      heartbeat.cancel();
+      logSub.cancel();
     };
 
     return Response.ok(
       controller.stream,
       headers: {
-        'Content-Type': 'text/event-stream',
+        'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
       },
+      // shelf_io buffers chunked bodies by default — SSE never reaches the client.
+      context: {'shelf.io.buffer_output': false},
     );
   }
 }

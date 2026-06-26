@@ -17,7 +17,7 @@ void main() {
     );
 
     expect(response.statusCode, 200);
-    expect(response.headers['content-type'], 'text/event-stream');
+    expect(response.headers['content-type'], contains('text/event-stream'));
 
     final completer = Completer<void>();
     var buffer = '';
