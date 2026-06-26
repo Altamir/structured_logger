@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/filter_constants.dart';
 import '../models/log_entry.dart';
 import '../models/log_filter.dart';
+import '../theme/clef_design_system.dart';
 
 class GroupPanel extends StatefulWidget {
   final String groupBy;
@@ -105,93 +106,217 @@ class _GroupPanelState extends State<GroupPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
+    return Container(
+      margin: const EdgeInsets.only(
+        left: ClefDs.spaceMd,
+        top: ClefDs.spaceMd,
+        bottom: ClefDs.spaceMd,
+      ),
+      decoration: ClefDs.surfaceCard(context),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              ClefDs.spaceMd,
+              ClefDs.spaceMd,
+              ClefDs.spaceSm,
+              ClefDs.spaceSm,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'Groups',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Atualizar grupos',
+                  onPressed: widget.onRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: ClefDs.spaceMd),
+            child: Wrap(
+              spacing: ClefDs.spaceSm,
+              runSpacing: ClefDs.spaceSm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _LabeledDropdown(
+                  label: 'Group by',
+                  value: widget.groupBy,
+                  items: const [
+                    ('level', 'Level'),
+                    ('time', 'Time'),
+                    ('device_id', 'Device'),
+                    ('property', 'Property'),
+                  ],
+                  onChanged: widget.groupByChanged,
+                ),
+                if (widget.groupBy == 'time')
+                  _LabeledDropdown(
+                    label: 'Bucket',
+                    value: widget.timeBucket,
+                    items: const [
+                      ('minute', 'Minute'),
+                      ('hour', 'Hour'),
+                      ('day', 'Day'),
+                    ],
+                    onChanged: widget.timeBucketChanged,
+                  ),
+                if (widget.groupBy == 'property') ...[
+                  SizedBox(
+                    width: 120,
+                    child: TextField(
+                      controller: _propertyController,
+                      decoration: ClefDs.inputDecoration(
+                        context: context,
+                        label: 'Property',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          onPressed: _applyPropertyName,
+                        ),
+                      ),
+                      onSubmitted: (_) => _applyPropertyName(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: ClefDs.spaceSm),
+          const Divider(height: 1),
+          Expanded(
+            child: widget.groups.isEmpty
+                ? Center(
+                    child: Text(
+                      'No groups for current filters.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: ClefDs.spaceXs),
+                    itemCount: widget.groups.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 2),
+                    itemBuilder: (context, index) {
+                      final group = widget.groups[index];
+                      return _GroupListTile(
+                        title: group.key,
+                        count: group.count,
+                        onTap: () => widget.onGroupSelected(group.key),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LabeledDropdown extends StatelessWidget {
+  final String label;
+  final String value;
+  final List<(String, String)> items;
+  final ValueChanged<String> onChanged;
+
+  const _LabeledDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(ClefDs.radiusMd),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isDense: true,
+          style: Theme.of(context).textTheme.bodySmall,
+          items: items
+              .map(
+                (e) => DropdownMenuItem(value: e.$1, child: Text(e.$2)),
+              )
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupListTile extends StatelessWidget {
+  final String title;
+  final int count;
+  final VoidCallback onTap;
+
+  const _GroupListTile({
+    required this.title,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: ClefDs.spaceMd,
+            vertical: ClefDs.spaceSm,
+          ),
           child: Row(
             children: [
-              const Text('Group by:'),
-              const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: widget.groupBy,
-                items: const [
-                  DropdownMenuItem(value: 'level', child: Text('level')),
-                  DropdownMenuItem(value: 'time', child: Text('time')),
-                  DropdownMenuItem(value: 'device_id', child: Text('device_id')),
-                  DropdownMenuItem(value: 'property', child: Text('property')),
-                ],
-                onChanged: (v) {
-                  if (v != null) widget.groupByChanged(v);
-                },
-              ),
-              if (widget.groupBy == 'time') ...[
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  value: widget.timeBucket,
-                  items: const [
-                    DropdownMenuItem(value: 'minute', child: Text('minute')),
-                    DropdownMenuItem(value: 'hour', child: Text('hour')),
-                    DropdownMenuItem(value: 'day', child: Text('day')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) widget.timeBucketChanged(v);
-                  },
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-              if (widget.groupBy == 'property') ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 120,
-                  child: TextField(
-                    controller: _propertyController,
-                    decoration: const InputDecoration(
-                      labelText: 'Property',
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _applyPropertyName(),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(ClefDs.radiusPill),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Apply property',
-                  onPressed: _applyPropertyName,
-                  icon: const Icon(Icons.check),
-                ),
-              ],
-              const Spacer(),
-              IconButton(
-                onPressed: widget.onRefresh,
-                icon: const Icon(Icons.refresh),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),
         ),
-        Expanded(
-          child: widget.groups.isEmpty
-              ? const Center(child: Text('No groups for current filters.'))
-              : ListView.builder(
-                  itemCount: widget.groups.length,
-                  itemBuilder: (context, index) {
-                    final group = widget.groups[index];
-                    return ListTile(
-                      title: Text(group.key),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('${group.count}'),
-                          IconButton(
-                            icon: const Icon(Icons.arrow_forward),
-                            onPressed: () => widget.onGroupSelected(group.key),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
+      ),
     );
   }
 }

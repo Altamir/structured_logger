@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'models/log_filter.dart';
 import 'pages/admin_page.dart';
 import 'pages/viewer_page.dart';
+import 'theme/clef_design_system.dart';
+import 'theme/clef_theme.dart';
 import 'widgets/version_bar.dart';
 
 class ClefViewerApp extends StatefulWidget {
@@ -20,10 +22,7 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'CLEF Viewer - POC',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
+      theme: buildClefTheme(),
       home: Scaffold(
         appBar: AppBar(
           title: const Text('CLEF Viewer'),
@@ -32,13 +31,12 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
             child: VersionBar(),
           ),
           actions: [
-            TextButton(
-              onPressed: () => setState(() => _index = 0),
-              child: const Text('Viewer'),
-            ),
-            TextButton(
-              onPressed: () => setState(() => _index = 1),
-              child: const Text('Admin'),
+            Padding(
+              padding: const EdgeInsets.only(right: ClefDs.spaceMd),
+              child: _SegmentedNav(
+                index: _index,
+                onChanged: (i) => setState(() => _index = i),
+              ),
             ),
           ],
         ),
@@ -48,6 +46,76 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
                 onFilterChanged: (filter) => setState(() => _sharedFilter = filter),
               )
             : AdminPage(activeFilter: _sharedFilter),
+      ),
+    );
+  }
+}
+
+class _SegmentedNav extends StatelessWidget {
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  const _SegmentedNav({required this.index, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: ClefDs.appleGrayFill,
+        borderRadius: BorderRadius.circular(ClefDs.radiusMd),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _Segment(
+            label: 'Viewer',
+            selected: index == 0,
+            onTap: () => onChanged(0),
+          ),
+          _Segment(
+            label: 'Admin',
+            selected: index == 1,
+            onTap: () => onChanged(1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Segment extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _Segment({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? Colors.white : Colors.transparent,
+      borderRadius: BorderRadius.circular(ClefDs.radiusSm),
+      elevation: selected ? 1 : 0,
+      shadowColor: Colors.black26,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(ClefDs.radiusSm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? ClefDs.appleText : ClefDs.appleTextSecondary,
+            ),
+          ),
+        ),
       ),
     );
   }

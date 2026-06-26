@@ -1,3 +1,4 @@
+import 'package:clef_viewer_ui/models/level_options.dart';
 import 'package:clef_viewer_ui/models/log_filter.dart';
 import 'package:clef_viewer_ui/widgets/filter_bar.dart';
 import 'package:flutter/material.dart';
@@ -65,7 +66,7 @@ void main() {
     expect(find.text('level: error'), findsOneWidget);
     expect(find.text('search: timeout'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.clear).first);
+    await tester.tap(find.byIcon(Icons.close_rounded).first);
     await tester.pump();
 
     expect(applied, isNotNull);
@@ -99,6 +100,60 @@ void main() {
     expect(find.text('level: error'), findsOneWidget);
     expect(find.text('device: group-device'), findsOneWidget);
     expect(key.currentState!.buildFilter().deviceId, 'group-device');
+  });
+
+  testWidgets('all levels selected by default produces empty filter', (tester) async {
+    LogFilter? applied;
+    final key = GlobalKey<FilterBarState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilterBar(
+            key: key,
+            initialFilter: const LogFilter(),
+            onApply: (f) => applied = f,
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Levels'), findsOneWidget);
+    expect(key.currentState!.buildFilter().levels, isEmpty);
+
+    await tester.tap(find.text('Apply'));
+    await tester.pump();
+
+    expect(applied?.levels, isEmpty);
+  });
+
+  testWidgets('deselected level is included in applied filter', (tester) async {
+    LogFilter? applied;
+    final key = GlobalKey<FilterBarState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          body: FilterBar(
+            key: key,
+            initialFilter: const LogFilter(),
+            onApply: (f) => applied = f,
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('debug'));
+    await tester.pump();
+    await tester.tap(find.text('Apply'));
+    await tester.pump();
+
+    expect(applied, isNotNull);
+    expect(applied!.levels, isNot(contains('debug')));
+    expect(applied!.levels.length, LevelOptions.all.length - 1);
   });
 
   testWidgets('applyPropertyFilter sets property and applies', (tester) async {

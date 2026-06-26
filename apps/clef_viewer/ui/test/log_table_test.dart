@@ -28,7 +28,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Events (2 total)'), findsOneWidget);
+    expect(find.text('Events'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
     expect(find.textContaining('Hello'), findsOneWidget);
     expect(find.textContaining('Alice'), findsOneWidget);
     expect(find.text('Request failed'), findsOneWidget);

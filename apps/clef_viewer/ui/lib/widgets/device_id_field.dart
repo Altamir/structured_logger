@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/filter_constants.dart';
 import '../services/device_suggestion_cache.dart';
+import '../theme/clef_design_system.dart';
 
 class DeviceIdField extends StatefulWidget {
   final TextEditingController controller;
@@ -57,10 +58,9 @@ class _DeviceIdFieldState extends State<DeviceIdField> {
           return TextField(
             controller: textController,
             focusNode: focusNode,
-            decoration: const InputDecoration(
-              labelText: 'Device ID',
-              isDense: true,
-              border: OutlineInputBorder(),
+            decoration: ClefDs.inputDecoration(
+              context: context,
+              label: 'Device ID',
             ),
             onSubmitted: (_) => onFieldSubmitted(),
           );
@@ -70,6 +70,7 @@ class _DeviceIdFieldState extends State<DeviceIdField> {
             alignment: Alignment.topLeft,
             child: Material(
               elevation: 4,
+              borderRadius: BorderRadius.circular(ClefDs.radiusMd),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 200, maxWidth: 240),
                 child: ListView.builder(

@@ -54,7 +54,8 @@ class _LogRowState extends State<LogRow> {
         '${ts.second.toString().padLeft(2, '0')}';
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovering = true),
         onExit: (_) => setState(() => _hovering = false),

@@ -7,9 +7,11 @@ import '../models/log_filter.dart';
 import '../services/device_suggestion_cache.dart';
 import '../services/log_api_client.dart';
 import '../services/sse_client.dart';
+import '../theme/clef_design_system.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/group_panel.dart';
 import '../widgets/log_table.dart';
+import '../widgets/resizable_split_pane.dart';
 
 class ViewerPage extends StatefulWidget {
   final LogFilter sharedFilter;
@@ -191,54 +193,45 @@ class _ViewerPageState extends State<ViewerPage> {
           onClear: () => _applyFilter(const LogFilter()),
         ),
         Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: GroupPanel(
-                  groupBy: _groupBy,
-                  timeBucket: _timeBucket,
-                  propertyName: _propertyName,
-                  groups: _groups,
-                  groupByChanged: (v) {
-                    setState(() => _groupBy = v);
-                    _loadGroups();
-                  },
-                  timeBucketChanged: (v) {
-                    setState(() => _timeBucket = v);
-                    _loadGroups();
-                  },
-                  propertyNameChanged: (v) {
-                    setState(() => _propertyName = v);
-                    _loadGroups();
-                  },
-                  onGroupSelected: _onGroupSelected,
-                  onRefresh: _loadGroups,
-                ),
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(
-                flex: 3,
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : LogTable(
-                        events: _events,
-                        total: _total,
-                        onPropertyFilter: (param) {
-                          _filterBarKey.currentState?.applyPropertyFilter(param);
-                        },
-                      ),
-              ),
-            ],
+          child: ResizableSplitPane(
+            left: GroupPanel(
+              groupBy: _groupBy,
+              timeBucket: _timeBucket,
+              propertyName: _propertyName,
+              groups: _groups,
+              groupByChanged: (v) {
+                setState(() => _groupBy = v);
+                _loadGroups();
+              },
+              timeBucketChanged: (v) {
+                setState(() => _timeBucket = v);
+                _loadGroups();
+              },
+              propertyNameChanged: (v) {
+                setState(() => _propertyName = v);
+                _loadGroups();
+              },
+              onGroupSelected: _onGroupSelected,
+              onRefresh: _loadGroups,
+            ),
+            right: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : LogTable(
+                    events: _events,
+                    total: _total,
+                    onPropertyFilter: (param) {
+                      _filterBarKey.currentState?.applyPropertyFilter(param);
+                    },
+                  ),
           ),
         ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
+        Padding(
+          padding: const EdgeInsets.all(ClefDs.spaceMd),
+          child: Align(
+            alignment: Alignment.centerRight,
             child: FilledButton.icon(
               onPressed: _togglePause,
-              icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+              icon: Icon(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded),
               label: Text(_paused ? 'Resume' : 'Pause'),
             ),
           ),

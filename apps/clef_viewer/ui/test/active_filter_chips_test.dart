@@ -34,7 +34,7 @@ void main() {
     expect(find.text('level: error'), findsOneWidget);
     expect(find.text('device: my-app'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.clear).first);
+    await tester.tap(find.byIcon(Icons.close_rounded).first);
     await tester.pump();
 
     expect(applied, isNotNull);

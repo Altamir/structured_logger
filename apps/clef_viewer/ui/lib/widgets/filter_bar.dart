@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../models/filter_constants.dart';
+import '../models/level_options.dart';
 import '../models/log_filter.dart';
 import '../services/device_suggestion_cache.dart';
+import '../theme/clef_design_system.dart';
 import '../utils/active_filter_chip_factory.dart';
 import 'active_filter_chips.dart';
 import 'device_id_field.dart';
+import 'level_filter_field.dart';
 
 class FilterBar extends StatefulWidget {
   final LogFilter initialFilter;
@@ -26,21 +29,12 @@ class FilterBar extends StatefulWidget {
 }
 
 class FilterBarState extends State<FilterBar> {
-  static const levelOptions = [
-    'debug',
-    'information',
-    'info',
-    'warning',
-    'error',
-    'fatal',
-  ];
-
   late final TextEditingController _deviceController;
   late final TextEditingController _propertyController;
   late final TextEditingController _searchController;
   DateTime? _from;
   DateTime? _to;
-  final Set<String> _selectedLevels = {};
+  late Set<String> _selectedLevels;
   String? _validationError;
   LogFilter _appliedFilter = const LogFilter();
 
@@ -50,7 +44,7 @@ class FilterBarState extends State<FilterBar> {
     _appliedFilter = widget.initialFilter;
     _from = widget.initialFilter.from;
     _to = widget.initialFilter.to;
-    _selectedLevels.addAll(widget.initialFilter.levels);
+    _selectedLevels = LevelOptions.uiSelectionFromFilter(widget.initialFilter.levels);
     _deviceController = TextEditingController(
       text: _deviceIdToDisplay(widget.initialFilter.deviceId),
     );
@@ -74,7 +68,7 @@ class FilterBarState extends State<FilterBar> {
     return LogFilter(
       from: _from,
       to: _to,
-      levels: _selectedLevels.toList(),
+      levels: LevelOptions.filterFromUiSelection(_selectedLevels),
       deviceId: _deviceIdFromController(),
       property: _emptyToNull(_propertyController.text),
       search: _emptyToNull(_searchController.text),
@@ -108,9 +102,7 @@ class FilterBarState extends State<FilterBar> {
     void update() {
       _from = filter.from;
       _to = filter.to;
-      _selectedLevels
-        ..clear()
-        ..addAll(filter.levels);
+      _selectedLevels = LevelOptions.uiSelectionFromFilter(filter.levels);
       _deviceController.text = _deviceIdToDisplay(filter.deviceId);
       _propertyController.text = filter.property ?? '';
       _searchController.text = filter.search ?? '';
@@ -152,6 +144,20 @@ class FilterBarState extends State<FilterBar> {
     widget.onApply(updated);
   }
 
+  void _resetToDefaults() {
+    setState(() {
+      _from = null;
+      _to = null;
+      _selectedLevels = LevelOptions.all.toSet();
+      _deviceController.clear();
+      _propertyController.clear();
+      _searchController.clear();
+      _validationError = null;
+      _appliedFilter = const LogFilter();
+    });
+    widget.onClear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeChips = ActiveFilterChipFactory.fromFilter(
@@ -159,14 +165,21 @@ class FilterBarState extends State<FilterBar> {
       _onActiveChipRemove,
     );
 
-    return Padding(
-      padding: const EdgeInsets.all(12),
+    return Container(
+      margin: const EdgeInsets.all(ClefDs.spaceMd),
+      padding: const EdgeInsets.all(ClefDs.spaceLg),
+      decoration: ClefDs.surfaceCard(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          LevelFilterField(
+            selectedLevels: _selectedLevels,
+            onChanged: (levels) => setState(() => _selectedLevels = levels),
+          ),
+          const SizedBox(height: ClefDs.spaceMd),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: ClefDs.spaceSm,
+            runSpacing: ClefDs.spaceSm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               OutlinedButton(
@@ -193,7 +206,7 @@ class FilterBarState extends State<FilterBar> {
                     );
                   });
                 },
-                child: Text(_from == null ? 'From' : 'From: ${_from!.toLocal()}'),
+                child: Text(_from == null ? 'From' : _formatDateTime(_from!)),
               ),
               OutlinedButton(
                 onPressed: () async {
@@ -219,34 +232,7 @@ class FilterBarState extends State<FilterBar> {
                     );
                   });
                 },
-                child: Text(_to == null ? 'To' : 'To: ${_to!.toLocal()}'),
-              ),
-              PopupMenuButton<String>(
-                child: Chip(
-                  label: Text(
-                    _selectedLevels.isEmpty
-                        ? 'Levels'
-                        : _selectedLevels.join(', '),
-                  ),
-                ),
-                itemBuilder: (context) => levelOptions
-                    .map(
-                      (level) => CheckedPopupMenuItem<String>(
-                        value: level,
-                        checked: _selectedLevels.contains(level),
-                        child: Text(level),
-                      ),
-                    )
-                    .toList(),
-                onSelected: (level) {
-                  setState(() {
-                    if (_selectedLevels.contains(level)) {
-                      _selectedLevels.remove(level);
-                    } else {
-                      _selectedLevels.add(level);
-                    }
-                  });
-                },
+                child: Text(_to == null ? 'To' : _formatDateTime(_to!)),
               ),
               if (widget.deviceCache != null)
                 DeviceIdField(
@@ -256,24 +242,22 @@ class FilterBarState extends State<FilterBar> {
                 )
               else
                 SizedBox(
-                  width: 140,
+                  width: 160,
                   child: TextField(
                     controller: _deviceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Device ID',
-                      isDense: true,
-                      border: OutlineInputBorder(),
+                    decoration: ClefDs.inputDecoration(
+                      context: context,
+                      label: 'Device ID',
                     ),
                   ),
                 ),
               SizedBox(
-                width: 160,
+                width: 180,
                 child: TextField(
                   controller: _propertyController,
-                  decoration: const InputDecoration(
-                    labelText: 'Property (k=v)',
-                    isDense: true,
-                    border: OutlineInputBorder(),
+                  decoration: ClefDs.inputDecoration(
+                    context: context,
+                    label: 'Property (k=v)',
                   ),
                 ),
               ),
@@ -281,28 +265,15 @@ class FilterBarState extends State<FilterBar> {
                 width: 200,
                 child: TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Search',
-                    isDense: true,
-                    border: OutlineInputBorder(),
+                  decoration: ClefDs.inputDecoration(
+                    context: context,
+                    label: 'Search',
                   ),
                 ),
               ),
-              ElevatedButton(onPressed: apply, child: const Text('Apply')),
+              FilledButton(onPressed: apply, child: const Text('Apply')),
               OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _from = null;
-                    _to = null;
-                    _selectedLevels.clear();
-                    _deviceController.clear();
-                    _propertyController.clear();
-                    _searchController.clear();
-                    _validationError = null;
-                    _appliedFilter = const LogFilter();
-                  });
-                  widget.onClear();
-                },
+                onPressed: _resetToDefaults,
                 child: const Text('Clear'),
               ),
             ],
@@ -310,7 +281,7 @@ class FilterBarState extends State<FilterBar> {
           ActiveFilterChips(chips: activeChips),
           if (_validationError != null)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: ClefDs.spaceSm),
               child: Text(
                 _validationError!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -319,6 +290,14 @@ class FilterBarState extends State<FilterBar> {
         ],
       ),
     );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final local = dt.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/'
+        '${local.month.toString().padLeft(2, '0')} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
   }
 
   String? _emptyToNull(String value) =>
