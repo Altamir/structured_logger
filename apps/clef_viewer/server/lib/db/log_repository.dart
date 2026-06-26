@@ -248,6 +248,63 @@ LIMIT ? OFFSET ?
     return rows.first['cnt'] as int;
   }
 
+  int countSince(String sqliteInterval) {
+    final rows = _db.select(
+      "SELECT COUNT(*) AS cnt FROM app_logs WHERE timestamp >= datetime('now', ?)",
+      [sqliteInterval],
+    );
+    return rows.first['cnt'] as int;
+  }
+
+  List<({String period, int count})> countByHour({String since = '-24 hours'}) {
+    final rows = _db.select('''
+SELECT strftime('%Y-%m-%dT%H:00:00Z', timestamp) AS period, COUNT(*) AS count
+FROM app_logs
+WHERE timestamp >= datetime('now', ?)
+GROUP BY period
+ORDER BY period ASC
+''', [since]);
+    return rows
+        .map(
+          (row) => (
+            period: row['period']?.toString() ?? '',
+            count: row['count'] as int,
+          ),
+        )
+        .toList();
+  }
+
+  List<({String period, int count})> ingestPeaks({
+    String since = '-24 hours',
+    int limit = 10,
+  }) {
+    final rows = _db.select('''
+SELECT strftime('%Y-%m-%dT%H:%M:00Z', timestamp) AS period, COUNT(*) AS count
+FROM app_logs
+WHERE timestamp >= datetime('now', ?)
+GROUP BY period
+ORDER BY count DESC, period DESC
+LIMIT ?
+''', [since, limit]);
+    return rows
+        .map(
+          (row) => (
+            period: row['period']?.toString() ?? '',
+            count: row['count'] as int,
+          ),
+        )
+        .toList();
+  }
+
+  static int dbFileSizeBytes(String dbPath) {
+    if (dbPath == ':memory:') return 0;
+    try {
+      final file = File(dbPath);
+      if (file.existsSync()) return file.lengthSync();
+    } catch (_) {}
+    return 0;
+  }
+
   LogEntry _rowToEntry(Map<String, Object?> row) {
     return LogEntry.fromRow(row);
   }

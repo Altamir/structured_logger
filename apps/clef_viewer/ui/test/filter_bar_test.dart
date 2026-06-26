@@ -5,10 +5,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('FilterBar does not show Apply button', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilterBar(
+            initialFilter: const LogFilter(),
+            onApply: (_) {},
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Apply'), findsNothing);
+  });
+
   testWidgets('FilterBar shows validation when from is after to', (tester) async {
     var applied = false;
     await tester.pumpWidget(
       MaterialApp(
+        theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           body: FilterBar(
             initialFilter: LogFilter(
@@ -22,7 +39,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Apply'));
+    await tester.tap(find.text('debug'));
     await tester.pump();
 
     expect(find.text('From date must be before to date'), findsOneWidget);
@@ -103,7 +120,6 @@ void main() {
   });
 
   testWidgets('all levels selected by default produces empty filter', (tester) async {
-    LogFilter? applied;
     final key = GlobalKey<FilterBarState>();
 
     await tester.pumpWidget(
@@ -112,7 +128,7 @@ void main() {
           body: FilterBar(
             key: key,
             initialFilter: const LogFilter(),
-            onApply: (f) => applied = f,
+            onApply: (_) {},
             onClear: () {},
           ),
         ),
@@ -121,23 +137,16 @@ void main() {
 
     expect(find.text('Levels'), findsOneWidget);
     expect(key.currentState!.buildFilter().levels, isEmpty);
-
-    await tester.tap(find.text('Apply'));
-    await tester.pump();
-
-    expect(applied?.levels, isEmpty);
   });
 
-  testWidgets('deselected level is included in applied filter', (tester) async {
+  testWidgets('deselected level applies filter automatically', (tester) async {
     LogFilter? applied;
-    final key = GlobalKey<FilterBarState>();
 
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
         home: Scaffold(
           body: FilterBar(
-            key: key,
             initialFilter: const LogFilter(),
             onApply: (f) => applied = f,
             onClear: () {},
@@ -148,12 +157,32 @@ void main() {
 
     await tester.tap(find.text('debug'));
     await tester.pump();
-    await tester.tap(find.text('Apply'));
-    await tester.pump();
 
     expect(applied, isNotNull);
     expect(applied!.levels, isNot(contains('debug')));
     expect(applied!.levels.length, LevelOptions.all.length - 1);
+  });
+
+  testWidgets('search field applies filter after debounce', (tester) async {
+    LogFilter? applied;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilterBar(
+            initialFilter: const LogFilter(),
+            onApply: (f) => applied = f,
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).last, 'timeout');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(applied?.search, 'timeout');
   });
 
   testWidgets('applyPropertyFilter sets property and applies', (tester) async {

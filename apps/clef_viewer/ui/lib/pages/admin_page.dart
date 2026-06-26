@@ -3,9 +3,11 @@ import 'dart:html' as html;
 import 'package:flutter/material.dart';
 
 import '../config/api_config.dart';
+import '../models/admin_stats.dart';
 import '../models/log_filter.dart';
 import '../services/export_downloader.dart';
 import '../services/log_api_client.dart';
+import '../theme/clef_design_system.dart';
 import '../widgets/confirm_delete_dialog.dart';
 
 class AdminPage extends StatefulWidget {
@@ -20,9 +22,10 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   final _api = LogApiClient();
   final _keyController = TextEditingController();
-  int? _eventCount;
+  AdminStats? _stats;
   String? _error;
   bool _loading = false;
+  bool _statsLoading = false;
   bool _showKeyBanner = false;
 
   @override
@@ -31,10 +34,10 @@ class _AdminPageState extends State<AdminPage> {
     final stored = html.window.sessionStorage[ApiConfig.adminKeyStorageKey];
     if (stored != null && stored.isNotEmpty) {
       _keyController.text = stored;
+      _refreshStats();
     } else {
       _showKeyBanner = true;
     }
-    _refreshHealth();
     WidgetsBinding.instance.addPostFrameCallback((_) => _promptForApiKeyIfNeeded());
   }
 
@@ -67,12 +70,36 @@ class _AdminPageState extends State<AdminPage> {
     super.dispose();
   }
 
-  Future<void> _refreshHealth() async {
+  String? get _apiKey {
+    final key = _keyController.text.trim();
+    return key.isEmpty ? null : key;
+  }
+
+  Future<void> _refreshStats() async {
+    final key = _apiKey;
+    if (key == null) return;
+
+    setState(() => _statsLoading = true);
     try {
-      final health = await _api.fetchHealth();
-      setState(() => _eventCount = health.events);
-    } catch (_) {
-      setState(() => _eventCount = null);
+      final stats = await _api.fetchAdminStats(apiKey: key);
+      if (!mounted) return;
+      setState(() {
+        _stats = stats;
+        _statsLoading = false;
+        _error = null;
+      });
+    } on UnauthorizedException {
+      setState(() {
+        _stats = null;
+        _statsLoading = false;
+        _error = 'Invalid API key';
+      });
+    } catch (e) {
+      setState(() {
+        _stats = null;
+        _statsLoading = false;
+        _error = e.toString();
+      });
     }
   }
 
@@ -83,11 +110,7 @@ class _AdminPageState extends State<AdminPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('API key saved to session')),
     );
-  }
-
-  String? get _apiKey {
-    final key = _keyController.text.trim();
-    return key.isEmpty ? null : key;
+    _refreshStats();
   }
 
   Future<void> _export({bool filtered = false}) async {
@@ -113,7 +136,7 @@ class _AdminPageState extends State<AdminPage> {
       setState(() => _error = e.toString());
     } finally {
       setState(() => _loading = false);
-      await _refreshHealth();
+      await _refreshStats();
     }
   }
 
@@ -149,14 +172,14 @@ class _AdminPageState extends State<AdminPage> {
       setState(() => _error = e.toString());
     } finally {
       setState(() => _loading = false);
-      await _refreshHealth();
+      await _refreshStats();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(ClefDs.spaceXl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -173,62 +196,333 @@ class _AdminPageState extends State<AdminPage> {
                 ),
               ],
             ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _keyController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'API Key',
-                    border: OutlineInputBorder(),
+          Container(
+            padding: const EdgeInsets.all(ClefDs.spaceLg),
+            decoration: ClefDs.surfaceCard(context),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _keyController,
+                    obscureText: true,
+                    decoration: ClefDs.inputDecoration(
+                      context: context,
+                      label: 'API Key',
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton(onPressed: _saveKey, child: const Text('Save to session')),
-            ],
+                const SizedBox(width: ClefDs.spaceMd),
+                FilledButton(
+                  onPressed: _saveKey,
+                  child: const Text('Save to session'),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Storage: ${_eventCount ?? '—'} events',
-            style: Theme.of(context).textTheme.titleMedium,
+          const SizedBox(height: ClefDs.spaceLg),
+          _StorageSection(
+            stats: _stats,
+            loading: _statsLoading,
+            onRefresh: _refreshStats,
           ),
           if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: ClefDs.spaceMd),
+            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          const SizedBox(height: ClefDs.spaceLg),
+          _ReportsSection(stats: _stats, loading: _statsLoading),
+          const SizedBox(height: ClefDs.spaceLg),
+          Container(
+            padding: const EdgeInsets.all(ClefDs.spaceLg),
+            decoration: ClefDs.surfaceCard(context),
+            child: Wrap(
+              spacing: ClefDs.spaceMd,
+              runSpacing: ClefDs.spaceMd,
+              children: [
+                FilledButton(
+                  onPressed: _loading ? null : () => _export(filtered: false),
+                  child: const Text('Export All CLEF'),
+                ),
+                FilledButton(
+                  onPressed: _loading ? null : () => _export(filtered: true),
+                  child: const Text('Export Filtered CLEF'),
+                ),
+                OutlinedButton(
+                  onPressed: _loading ? null : () => _confirmAndDelete(),
+                  child: const Text('Clear All Logs'),
+                ),
+                OutlinedButton(
+                  onPressed: _loading
+                      ? null
+                      : () => _confirmAndDelete(filtered: true),
+                  child: const Text('Clear Filtered'),
+                ),
+              ],
+            ),
+          ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: ClefDs.spaceMd),
+              child: LinearProgressIndicator(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StorageSection extends StatelessWidget {
+  final AdminStats? stats;
+  final bool loading;
+  final VoidCallback onRefresh;
+
+  const _StorageSection({
+    required this.stats,
+    required this.loading,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ClefDs.spaceLg),
+      decoration: ClefDs.surfaceCard(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              ElevatedButton(
-                onPressed: _loading ? null : () => _export(filtered: false),
-                child: const Text('Export All CLEF'),
-              ),
-              ElevatedButton(
-                onPressed: _loading ? null : () => _export(filtered: true),
-                child: const Text('Export Filtered CLEF'),
-              ),
-              OutlinedButton(
-                onPressed: _loading ? null : () => _confirmAndDelete(),
-                child: const Text('Clear All Logs'),
-              ),
-              OutlinedButton(
-                onPressed: _loading
-                    ? null
-                    : () => _confirmAndDelete(filtered: true),
-                child: const Text('Clear Filtered'),
+              Text('Storage', style: Theme.of(context).textTheme.titleMedium),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Atualizar métricas',
+                onPressed: loading ? null : onRefresh,
+                icon: loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
               ),
             ],
           ),
-          if (_loading) const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: LinearProgressIndicator(),
+          const SizedBox(height: ClefDs.spaceMd),
+          Wrap(
+            spacing: ClefDs.spaceLg,
+            runSpacing: ClefDs.spaceMd,
+            children: [
+              _MetricTile(
+                label: 'Espaço do banco',
+                value: stats == null ? '—' : _formatBytes(stats!.dbSizeBytes),
+                subtitle: stats?.dbSizeBytes == 0 ? 'em memória ou indisponível' : null,
+              ),
+              _MetricTile(
+                label: 'Total de eventos',
+                value: stats == null ? '—' : '${stats!.eventCount}',
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+class _ReportsSection extends StatelessWidget {
+  final AdminStats? stats;
+  final bool loading;
+
+  const _ReportsSection({required this.stats, required this.loading});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ClefDs.spaceLg),
+      decoration: ClefDs.surfaceCard(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Relatórios', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: ClefDs.spaceMd),
+          if (loading && stats == null)
+            const Center(child: CircularProgressIndicator())
+          else if (stats == null)
+            Text(
+              'Salve a API key para carregar relatórios.',
+              style: Theme.of(context).textTheme.bodySmall,
+            )
+          else ...[
+            Wrap(
+              spacing: ClefDs.spaceLg,
+              runSpacing: ClefDs.spaceMd,
+              children: [
+                _MetricTile(
+                  label: 'Logs/seg (último minuto)',
+                  value: stats!.logsPerSecondLastMinute.toStringAsFixed(2),
+                ),
+                _MetricTile(
+                  label: 'Logs/seg (média última hora)',
+                  value: stats!.logsPerSecondLastHour.toStringAsFixed(2),
+                ),
+              ],
+            ),
+            const SizedBox(height: ClefDs.spaceLg),
+            Text(
+              'Total por período (últimas 24h, por hora)',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: ClefDs.spaceSm),
+            _BucketTable(
+              buckets: stats!.totalByPeriod,
+              emptyMessage: 'Nenhum log nas últimas 24 horas.',
+            ),
+            const SizedBox(height: ClefDs.spaceLg),
+            Text(
+              'Picos de ingest (top 10 minutos, últimas 24h)',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: ClefDs.spaceSm),
+            _BucketTable(
+              buckets: stats!.ingestPeaks,
+              emptyMessage: 'Nenhum pico registrado.',
+              showRank: true,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final String? subtitle;
+
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 200,
+      padding: const EdgeInsets.all(ClefDs.spaceMd),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(ClefDs.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(subtitle!, style: Theme.of(context).textTheme.labelSmall),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BucketTable extends StatelessWidget {
+  final List<PeriodBucket> buckets;
+  final String emptyMessage;
+  final bool showRank;
+
+  const _BucketTable({
+    required this.buckets,
+    required this.emptyMessage,
+    this.showRank = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (buckets.isEmpty) {
+      return Text(emptyMessage, style: Theme.of(context).textTheme.bodySmall);
+    }
+
+    final maxCount = buckets.map((b) => b.count).reduce((a, b) => a > b ? a : b);
+
+    return Column(
+      children: [
+        for (var i = 0; i < buckets.length; i++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                if (showRank)
+                  SizedBox(
+                    width: 28,
+                    child: Text(
+                      '#${i + 1}',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    _formatPeriod(buckets[i].period),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: maxCount == 0 ? 0 : buckets[i].count / maxCount,
+                      minHeight: 8,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: ClefDs.spaceSm),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    '${buckets[i].count}',
+                    textAlign: TextAlign.right,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+String _formatBytes(int bytes) {
+  if (bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  var value = bytes.toDouble();
+  var unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return '${value.toStringAsFixed(value >= 10 || unit == 0 ? 0 : 1)} ${units[unit]}';
+}
+
+String _formatPeriod(String iso) {
+  if (iso.length < 16) return iso;
+  return '${iso.substring(0, 10)} ${iso.substring(11, 16)}';
 }

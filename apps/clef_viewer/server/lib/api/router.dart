@@ -36,6 +36,7 @@ Handler createHandler({
   final admin = AdminHandler(
     repository: repository,
     serializer: ClefSerializer(),
+    dbPath: config.dbPath,
   );
   final sse = SseHandler(broadcaster: broadcaster);
 
@@ -68,6 +69,10 @@ Handler createHandler({
   router.get(
     '/api/admin/export',
     (Request request) => adminAuth((r) => admin.exportLogs(r))(request),
+  );
+  router.get(
+    '/api/admin/stats',
+    (Request request) => adminAuth((r) => admin.getStats(r))(request),
   );
   router.get('/health', (Request request) async {
     final count = await repository.count();

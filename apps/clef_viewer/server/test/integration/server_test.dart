@@ -242,6 +242,39 @@ not-json
       expect(authorized.statusCode, 200);
     });
 
+    test('admin stats returns storage and ingest metrics', () async {
+      final now = DateTime.now().toUtc().toIso8601String();
+      for (var i = 0; i < 3; i++) {
+        await http.post(
+          uri('/api/events/raw', {'clef': ''}),
+          headers: {
+            'Content-Type': CONTENT_TYPE_CLEF,
+            SEQ_API_KEY: 'ingest-key',
+          },
+          body: jsonEncode({
+            '@t': now,
+            '@mt': 'stats test $i',
+            '@l': 'info',
+          }),
+        );
+      }
+
+      final unauthorized = await http.get(uri('/api/admin/stats'));
+      expect(unauthorized.statusCode, 401);
+
+      final response = await http.get(
+        uri('/api/admin/stats'),
+        headers: {SEQ_API_KEY: 'admin-key'},
+      );
+      expect(response.statusCode, 200);
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      expect(data['event_count'], 3);
+      expect(data['logs_per_second_last_minute'], greaterThan(0));
+      expect(data['total_by_period'], isA<List<dynamic>>());
+      expect(data['ingest_peaks'], isA<List<dynamic>>());
+    });
+
     test('export returns NDJSON CLEF lines', () async {
       await http.post(
         uri('/api/events/raw', {'clef': ''}),

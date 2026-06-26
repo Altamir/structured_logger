@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../models/admin_stats.dart';
 import '../models/log_entry.dart';
 import '../models/log_filter.dart';
 
@@ -76,6 +77,23 @@ class LogApiClient {
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return data['deleted'] as int;
+  }
+
+  Future<AdminStats> fetchAdminStats({required String apiKey}) async {
+    final uri = ApiConfig.uri('/api/admin/stats');
+    final response = await _client.get(
+      uri,
+      headers: {'X-Seq-ApiKey': apiKey},
+    );
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch admin stats: ${response.statusCode}');
+    }
+    return AdminStats.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<HealthStatus> fetchHealth() async {

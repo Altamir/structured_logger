@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/filter_constants.dart';
@@ -29,6 +31,8 @@ class FilterBar extends StatefulWidget {
 }
 
 class FilterBarState extends State<FilterBar> {
+  static const _textDebounce = Duration(milliseconds: 450);
+
   late final TextEditingController _deviceController;
   late final TextEditingController _propertyController;
   late final TextEditingController _searchController;
@@ -37,6 +41,7 @@ class FilterBarState extends State<FilterBar> {
   late Set<String> _selectedLevels;
   String? _validationError;
   LogFilter _appliedFilter = const LogFilter();
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -54,14 +59,26 @@ class FilterBarState extends State<FilterBar> {
     _searchController = TextEditingController(
       text: widget.initialFilter.search ?? '',
     );
+
+    if (widget.deviceCache == null) {
+      _deviceController.addListener(_scheduleDebouncedApply);
+    }
+    _propertyController.addListener(_scheduleDebouncedApply);
+    _searchController.addListener(_scheduleDebouncedApply);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _deviceController.dispose();
     _propertyController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _scheduleDebouncedApply() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_textDebounce, apply);
   }
 
   LogFilter buildFilter() {
@@ -158,6 +175,56 @@ class FilterBarState extends State<FilterBar> {
     widget.onClear();
   }
 
+  Future<void> _pickFrom() async {
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: _from ?? DateTime.now(),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_from ?? DateTime.now()),
+    );
+    if (time == null) return;
+    setState(() {
+      _from = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+    apply();
+  }
+
+  Future<void> _pickTo() async {
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: _to ?? DateTime.now(),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_to ?? DateTime.now()),
+    );
+    if (time == null) return;
+    setState(() {
+      _to = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+    apply();
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeChips = ActiveFilterChipFactory.fromFilter(
@@ -174,7 +241,10 @@ class FilterBarState extends State<FilterBar> {
         children: [
           LevelFilterField(
             selectedLevels: _selectedLevels,
-            onChanged: (levels) => setState(() => _selectedLevels = levels),
+            onChanged: (levels) {
+              setState(() => _selectedLevels = levels);
+              apply();
+            },
           ),
           const SizedBox(height: ClefDs.spaceMd),
           Wrap(
@@ -183,55 +253,11 @@ class FilterBarState extends State<FilterBar> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               OutlinedButton(
-                onPressed: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                    initialDate: _from ?? DateTime.now(),
-                  );
-                  if (date == null || !context.mounted) return;
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.fromDateTime(_from ?? DateTime.now()),
-                  );
-                  if (time == null) return;
-                  setState(() {
-                    _from = DateTime(
-                      date.year,
-                      date.month,
-                      date.day,
-                      time.hour,
-                      time.minute,
-                    );
-                  });
-                },
+                onPressed: _pickFrom,
                 child: Text(_from == null ? 'From' : _formatDateTime(_from!)),
               ),
               OutlinedButton(
-                onPressed: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                    initialDate: _to ?? DateTime.now(),
-                  );
-                  if (date == null || !context.mounted) return;
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.fromDateTime(_to ?? DateTime.now()),
-                  );
-                  if (time == null) return;
-                  setState(() {
-                    _to = DateTime(
-                      date.year,
-                      date.month,
-                      date.day,
-                      time.hour,
-                      time.minute,
-                    );
-                  });
-                },
+                onPressed: _pickTo,
                 child: Text(_to == null ? 'To' : _formatDateTime(_to!)),
               ),
               if (widget.deviceCache != null)
@@ -271,7 +297,6 @@ class FilterBarState extends State<FilterBar> {
                   ),
                 ),
               ),
-              FilledButton(onPressed: apply, child: const Text('Apply')),
               OutlinedButton(
                 onPressed: _resetToDefaults,
                 child: const Text('Clear'),
