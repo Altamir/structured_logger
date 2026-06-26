@@ -434,8 +434,7 @@ not-json
 
       final sub = sseResponse.read().transform(utf8.decoder).listen((chunk) {
         buffer += chunk;
-        if (buffer.contains('event: log') &&
-            buffer.contains('http-sse-ingest')) {
+        if (buffer.contains('data:') && buffer.contains('http-sse-ingest')) {
           if (!completer.isCompleted) completer.complete();
         }
       });

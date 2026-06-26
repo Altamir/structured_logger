@@ -23,7 +23,7 @@ void main() {
     var buffer = '';
     final sub = response.read().transform(utf8.decoder).listen((chunk) {
       buffer += chunk;
-      if (buffer.contains('event: log') && buffer.contains('sse-unit-test')) {
+      if (buffer.contains('data:') && buffer.contains('sse-unit-test')) {
         completer.complete();
       }
     });

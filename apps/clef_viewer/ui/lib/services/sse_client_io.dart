@@ -110,10 +110,14 @@ class SseClient {
       }
     }
 
-    if (eventType == 'log' && dataLines.isNotEmpty) {
-      final json = jsonDecode(dataLines.join('\n')) as Map<String, dynamic>;
-      _controller.add(LogEntry.fromJson(json));
-    }
+    if (dataLines.isEmpty) return;
+
+    final isLog = eventType == null || eventType == 'log';
+    if (!isLog) return;
+
+    final json = jsonDecode(dataLines.join('\n')) as Map<String, dynamic>;
+    if (!json.containsKey('timestamp') || !json.containsKey('level')) return;
+    _controller.add(LogEntry.fromJson(json));
   }
 
   void _scheduleReconnect() {

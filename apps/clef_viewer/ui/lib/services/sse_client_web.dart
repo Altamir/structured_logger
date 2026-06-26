@@ -12,8 +12,9 @@ import '../models/log_entry.dart';
 class SseClient {
   final String baseUrl;
   html.EventSource? _source;
+  StreamSubscription<html.MessageEvent>? _messageSub;
   StreamSubscription<html.Event>? _openSub;
-  html.EventListener? _logListener;
+  StreamSubscription<html.Event>? _errorSub;
   final _controller = StreamController<LogEntry>.broadcast();
   bool _disposed = false;
   bool _paused = false;
@@ -53,47 +54,70 @@ class SseClient {
   void _openSource() {
     _closeSource();
 
-    final source = html.EventSource(_streamUrl());
+    final url = _streamUrl();
+    if (kDebugMode) {
+      debugPrint('SSE connecting: $url');
+    }
+
+    final source = html.EventSource(url);
     _source = source;
 
-    _logListener = (html.Event event) {
-      if (_disposed || _paused) return;
-      final message = event as html.MessageEvent;
-      final data = message.data;
-      if (data == null || data.toString().isEmpty) return;
-
-      try {
-        final json = jsonDecode(data as String) as Map<String, dynamic>;
-        _controller.add(LogEntry.fromJson(json));
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('SSE parse error: $e');
-        }
-      }
-    };
-    source.addEventListener('log', _logListener!);
+    // Default SSE messages (no custom event type) — best browser support.
+    _messageSub = source.onMessage.listen(_onMessage);
 
     _openSub = source.onOpen.listen((_) {
       if (_disposed || _paused) return;
+      if (kDebugMode) {
+        debugPrint('SSE open');
+      }
       if (_hadOpen) {
         onReconnect?.call();
       }
       _hadOpen = true;
     });
+
+    _errorSub = source.onError.listen((_) {
+      if (kDebugMode) {
+        debugPrint('SSE error (browser will retry)');
+      }
+    });
+  }
+
+  void _onMessage(html.MessageEvent event) {
+    if (_disposed || _paused) return;
+    final data = event.data;
+    if (data == null || data.toString().isEmpty) return;
+
+    try {
+      final json = jsonDecode(data as String) as Map<String, dynamic>;
+      if (!json.containsKey('timestamp') || !json.containsKey('level')) {
+        return;
+      }
+      _controller.add(LogEntry.fromJson(json));
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('SSE parse error: $e');
+      }
+    }
   }
 
   void _closeSource() {
+    _messageSub?.cancel();
+    _messageSub = null;
     _openSub?.cancel();
     _openSub = null;
-
-    if (_source != null && _logListener != null) {
-      _source!.removeEventListener('log', _logListener);
-    }
-    _logListener = null;
+    _errorSub?.cancel();
+    _errorSub = null;
 
     _source?.close();
     _source = null;
   }
 
-  String _streamUrl() => ApiConfig.uri('/api/events/stream').toString();
+  String _streamUrl() {
+    final path = ApiConfig.uri('/api/events/stream');
+    if (ApiConfig.isSameOrigin) {
+      return '${html.window.location.origin}${path.path}';
+    }
+    return path.toString();
+  }
 }

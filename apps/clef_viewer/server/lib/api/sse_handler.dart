@@ -16,19 +16,25 @@ class SseHandler {
     StreamSubscription<LogEntry>? logSub;
     Timer? heartbeat;
 
-    void sendEvent(String event, Object data) {
-      final payload = 'event: $event\ndata: ${jsonEncode(data)}\n\n';
+    void sendLog(Object data) {
+      // Default SSE message (no custom event type) — works with EventSource.onMessage.
+      final payload = 'data: ${jsonEncode(data)}\n\n';
       controller.add(utf8.encode(payload));
     }
 
-    sendEvent('heartbeat', {});
+    void sendHeartbeat() {
+      // SSE comment line — keeps connection alive without client events.
+      controller.add(utf8.encode(': heartbeat\n\n'));
+    }
+
+    sendHeartbeat();
 
     logSub = broadcaster.stream.listen((entry) {
-      sendEvent('log', entry.toJson());
+      sendLog(entry.toJson());
     });
 
     heartbeat = Timer.periodic(const Duration(seconds: 30), (_) {
-      sendEvent('heartbeat', {});
+      sendHeartbeat();
     });
 
     controller.onCancel = () async {
@@ -41,8 +47,9 @@ class SseHandler {
       controller.stream,
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
       },
     );
   }
