@@ -83,26 +83,63 @@ class SinkSeq extends LogSink {
     final body = json.encode(clefEvent);
 
     try {
-      final headers = {'Content-Type': CONTENT_TYPE_CLEF};
+      final headers = <String, String>{'Content-Type': CONTENT_TYPE_CLEF};
       if (apiKey != null) {
         headers[SEQ_API_KEY] = apiKey!;
       }
 
-      final response = await _client.post(
-        _eventsUri,
-        headers: headers,
-        body: body,
-      );
+      var uri = _eventsUri;
+      const maxRedirects = 3;
 
-      if (response.statusCode < 200 || response.statusCode >= 202) {
-        if (_kDebugMode) {
-          print('$ERROR_SEND_TO_SEQ ${response.body}');
+      for (var attempt = 0; attempt <= maxRedirects; attempt++) {
+        final response = await _client.post(
+          uri,
+          headers: headers,
+          body: body,
+        );
+
+        if (response.statusCode >= 200 && response.statusCode < 202) {
+          return;
         }
+
+        final redirectUri = _redirectTarget(uri, response);
+        if (redirectUri != null && attempt < maxRedirects) {
+          uri = redirectUri;
+          continue;
+        }
+
+        if (_kDebugMode) {
+          final detail = response.body.isEmpty
+              ? '${response.statusCode}'
+              : '${response.statusCode} ${response.body}';
+          print('$ERROR_SEND_TO_SEQ $detail');
+        }
+        return;
       }
     } catch (e) {
       if (_kDebugMode) {
         print('$ERROR_SEND_TO_SEQ $e');
       }
     }
+  }
+
+  /// Traefik and similar proxies often return 301/308 for http→https; the
+  /// `http` package does not follow POST redirects automatically.
+  Uri? _redirectTarget(Uri requestUri, http.Response response) {
+    final code = response.statusCode;
+    if (code != 301 &&
+        code != 302 &&
+        code != 303 &&
+        code != 307 &&
+        code != 308) {
+      return null;
+    }
+
+    final location = response.headers['location'];
+    if (location == null || location.isEmpty) {
+      return null;
+    }
+
+    return requestUri.resolve(location);
   }
 }

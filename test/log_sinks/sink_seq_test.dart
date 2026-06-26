@@ -122,6 +122,35 @@ void main() {
       expect(capturedHeaders['Content-Type'], 'application/vnd.serilog.clef');
     });
 
+    test('follows http to https redirect and retries POST', () async {
+      var callCount = 0;
+      late Uri redirectedUri;
+
+      final client = MockClient((request) async {
+        callCount++;
+        if (callCount == 1) {
+          return Response(
+            'Permanent Redirect',
+            301,
+            headers: {
+              'location': 'https://seq.example.com/api/events/raw?clef',
+            },
+          );
+        }
+
+        redirectedUri = request.url;
+        return Response('', 201);
+      });
+
+      final sink = SinkSeq('http://seq.example.com', client: client);
+      await sink.write(LogModel(mt: 'test message'));
+
+      expect(callCount, 2);
+      expect(redirectedUri.scheme, 'https');
+      expect(redirectedUri.path, '/api/events/raw');
+      expect(redirectedUri.query, 'clef');
+    });
+
     test('completes without exception on 201 response', () async {
       final client = MockClient((request) async => Response('', 201));
       final sink = SinkSeq('https://seq.example.com', client: client);
