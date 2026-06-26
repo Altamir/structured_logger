@@ -1,0 +1,8 @@
+{
+  "label": "Referência da API",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "description": "Documentação detalhada das classes e tipos públicos."
+  }
+}
