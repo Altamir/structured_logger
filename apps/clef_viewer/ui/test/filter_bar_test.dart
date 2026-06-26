@@ -27,4 +27,101 @@ void main() {
     expect(find.text('From date must be before to date'), findsOneWidget);
     expect(applied, isFalse);
   });
+
+  testWidgets('FilterBar does not show Event ID field', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilterBar(
+            initialFilter: const LogFilter(),
+            onApply: (_) {},
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Event ID'), findsNothing);
+    expect(find.bySemanticsLabel('Event ID'), findsNothing);
+  });
+
+  testWidgets('active filter chips are removable', (tester) async {
+    LogFilter? applied;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilterBar(
+            initialFilter: const LogFilter(
+              levels: ['error'],
+              search: 'timeout',
+            ),
+            onApply: (f) => applied = f,
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('level: error'), findsOneWidget);
+    expect(find.text('search: timeout'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.clear).first);
+    await tester.pump();
+
+    expect(applied, isNotNull);
+    expect(applied!.levels, isEmpty);
+    expect(applied!.search, 'timeout');
+  });
+
+  testWidgets('applyExternalFilter syncs chips and controllers', (tester) async {
+    final key = GlobalKey<FilterBarState>();
+    var applyCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilterBar(
+            key: key,
+            initialFilter: const LogFilter(),
+            onApply: (_) => applyCount++,
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    key.currentState!.applyExternalFilter(
+      const LogFilter(levels: ['error'], deviceId: 'group-device'),
+    );
+    await tester.pump();
+
+    expect(applyCount, 0);
+    expect(find.text('level: error'), findsOneWidget);
+    expect(find.text('device: group-device'), findsOneWidget);
+    expect(key.currentState!.buildFilter().deviceId, 'group-device');
+  });
+
+  testWidgets('applyPropertyFilter sets property and applies', (tester) async {
+    LogFilter? applied;
+    final key = GlobalKey<FilterBarState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilterBar(
+            key: key,
+            initialFilter: const LogFilter(),
+            onApply: (f) => applied = f,
+            onClear: () {},
+          ),
+        ),
+      ),
+    );
+
+    key.currentState!.applyPropertyFilter('UserId=42');
+    await tester.pump();
+
+    expect(applied?.property, 'UserId=42');
+    expect(find.text('property: UserId=42'), findsOneWidget);
+  });
 }

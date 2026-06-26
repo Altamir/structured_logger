@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/log_entry.dart';
 import '../models/log_filter.dart';
+import '../services/device_suggestion_cache.dart';
 import '../services/log_api_client.dart';
 import '../services/sse_client.dart';
 import '../widgets/filter_bar.dart';
@@ -28,6 +29,7 @@ class _ViewerPageState extends State<ViewerPage> {
   static const maxInMemory = 1000;
 
   final _api = LogApiClient();
+  late final DeviceSuggestionCache _deviceCache;
   late SseClient _sse;
   StreamSubscription<LogEntry>? _sseSub;
 
@@ -48,6 +50,8 @@ class _ViewerPageState extends State<ViewerPage> {
   void initState() {
     super.initState();
     _filter = widget.sharedFilter;
+    _deviceCache = DeviceSuggestionCache(api: _api);
+    _deviceCache.load();
     _sse = SseClient()..onReconnect = _onSseReconnect;
     _loadInitial();
     _connectSse();
@@ -59,6 +63,7 @@ class _ViewerPageState extends State<ViewerPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sharedFilter != widget.sharedFilter) {
       _filter = widget.sharedFilter;
+      _filterBarKey.currentState?.applyExternalFilter(widget.sharedFilter);
       _loadInitial();
       _loadGroups();
     }
@@ -132,6 +137,8 @@ class _ViewerPageState extends State<ViewerPage> {
     if (_paused) return;
     if (_filter.hasActiveFilters && !_filter.matches(entry)) return;
 
+    _deviceCache.mergeFromEvent(entry);
+
     setState(() {
       _events = [entry, ..._events];
       _total++;
@@ -158,6 +165,7 @@ class _ViewerPageState extends State<ViewerPage> {
   void _applyFilter(LogFilter filter) {
     setState(() => _filter = filter);
     widget.onFilterChanged(filter);
+    _filterBarKey.currentState?.applyExternalFilter(filter);
     _loadInitial();
   }
 
@@ -178,6 +186,7 @@ class _ViewerPageState extends State<ViewerPage> {
         FilterBar(
           key: _filterBarKey,
           initialFilter: _filter,
+          deviceCache: _deviceCache,
           onApply: _applyFilter,
           onClear: () => _applyFilter(const LogFilter()),
         ),
@@ -212,7 +221,13 @@ class _ViewerPageState extends State<ViewerPage> {
                 flex: 3,
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
-                    : LogTable(events: _events, total: _total),
+                    : LogTable(
+                        events: _events,
+                        total: _total,
+                        onPropertyFilter: (param) {
+                          _filterBarKey.currentState?.applyPropertyFilter(param);
+                        },
+                      ),
               ),
             ],
           ),

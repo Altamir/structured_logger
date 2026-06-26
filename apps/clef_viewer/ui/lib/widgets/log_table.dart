@@ -6,11 +6,13 @@ import 'log_row.dart';
 class LogTable extends StatelessWidget {
   final List<LogEntry> events;
   final int total;
+  final ValueChanged<String>? onPropertyFilter;
 
   const LogTable({
     super.key,
     required this.events,
     required this.total,
+    this.onPropertyFilter,
   });
 
   @override
@@ -27,10 +29,15 @@ class LogTable extends StatelessWidget {
         ),
         Expanded(
           child: events.isEmpty
-              ? const Center(child: Text('No events match the current filters.'))
+              ? const Center(
+                  child: Text('No events match the current filters.'),
+                )
               : ListView.builder(
                   itemCount: events.length,
-                  itemBuilder: (context, index) => LogRow(entry: events[index]),
+                  itemBuilder: (context, index) => LogRow(
+                    entry: events[index],
+                    onPropertyFilter: onPropertyFilter,
+                  ),
                 ),
         ),
       ],

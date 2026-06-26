@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
 
+import '../models/filter_constants.dart';
 import '../models/log_filter.dart';
+import '../services/device_suggestion_cache.dart';
+import '../utils/active_filter_chip_factory.dart';
+import 'active_filter_chips.dart';
+import 'device_id_field.dart';
 
 class FilterBar extends StatefulWidget {
   final LogFilter initialFilter;
   final ValueChanged<LogFilter> onApply;
   final VoidCallback onClear;
+  final DeviceSuggestionCache? deviceCache;
 
   const FilterBar({
     super.key,
     required this.initialFilter,
     required this.onApply,
     required this.onClear,
+    this.deviceCache,
   });
 
   @override
@@ -29,30 +36,35 @@ class FilterBarState extends State<FilterBar> {
   ];
 
   late final TextEditingController _deviceController;
-  late final TextEditingController _eventIdController;
   late final TextEditingController _propertyController;
   late final TextEditingController _searchController;
   DateTime? _from;
   DateTime? _to;
   final Set<String> _selectedLevels = {};
   String? _validationError;
+  LogFilter _appliedFilter = const LogFilter();
 
   @override
   void initState() {
     super.initState();
+    _appliedFilter = widget.initialFilter;
     _from = widget.initialFilter.from;
     _to = widget.initialFilter.to;
     _selectedLevels.addAll(widget.initialFilter.levels);
-    _deviceController = TextEditingController(text: widget.initialFilter.deviceId);
-    _eventIdController = TextEditingController(text: widget.initialFilter.eventId);
-    _propertyController = TextEditingController(text: widget.initialFilter.property);
-    _searchController = TextEditingController(text: widget.initialFilter.search);
+    _deviceController = TextEditingController(
+      text: _deviceIdToDisplay(widget.initialFilter.deviceId),
+    );
+    _propertyController = TextEditingController(
+      text: widget.initialFilter.property ?? '',
+    );
+    _searchController = TextEditingController(
+      text: widget.initialFilter.search ?? '',
+    );
   }
 
   @override
   void dispose() {
     _deviceController.dispose();
-    _eventIdController.dispose();
     _propertyController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -63,8 +75,7 @@ class FilterBarState extends State<FilterBar> {
       from: _from,
       to: _to,
       levels: _selectedLevels.toList(),
-      deviceId: _emptyToNull(_deviceController.text),
-      eventId: _emptyToNull(_eventIdController.text),
+      deviceId: _deviceIdFromController(),
       property: _emptyToNull(_propertyController.text),
       search: _emptyToNull(_searchController.text),
     );
@@ -75,14 +86,79 @@ class FilterBarState extends State<FilterBar> {
     final error = filter.validate();
     setState(() => _validationError = error);
     if (error == null) {
+      _appliedFilter = filter;
       widget.onApply(filter);
     }
   }
 
+  void applyPropertyFilter(String propertyParam) {
+    _propertyController.text = propertyParam;
+    apply();
+  }
+
+  /// Syncs controllers and active chips from an externally applied filter.
+  /// Does not call [onApply] — caller already updated page state.
+  void applyExternalFilter(LogFilter filter) {
+    _syncControllersFromFilter(filter);
+  }
+
   String? get validationError => _validationError;
+
+  void _syncControllersFromFilter(LogFilter filter, {bool notify = true}) {
+    void update() {
+      _from = filter.from;
+      _to = filter.to;
+      _selectedLevels
+        ..clear()
+        ..addAll(filter.levels);
+      _deviceController.text = _deviceIdToDisplay(filter.deviceId);
+      _propertyController.text = filter.property ?? '';
+      _searchController.text = filter.search ?? '';
+      _validationError = null;
+      _appliedFilter = filter;
+    }
+
+    if (notify) {
+      setState(update);
+    } else {
+      update();
+    }
+  }
+
+  String _deviceIdToDisplay(String? deviceId) {
+    if (deviceId == null) return '';
+    if (deviceId == FilterConstants.emptySentinel) return '(empty)';
+    return deviceId;
+  }
+
+  String? _deviceIdFromController() {
+    final text = _deviceController.text.trim();
+    if (text.isEmpty) return null;
+    if (text == '(empty)') return FilterConstants.emptySentinel;
+    return text;
+  }
+
+  void _onDeviceSelected(String? deviceId) {
+    if (deviceId == FilterConstants.emptySentinel) {
+      _deviceController.text = '(empty)';
+    } else if (deviceId != null) {
+      _deviceController.text = deviceId;
+    }
+    apply();
+  }
+
+  void _onActiveChipRemove(LogFilter updated) {
+    _syncControllersFromFilter(updated);
+    widget.onApply(updated);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final activeChips = ActiveFilterChipFactory.fromFilter(
+      _appliedFilter,
+      _onActiveChipRemove,
+    );
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -172,28 +248,24 @@ class FilterBarState extends State<FilterBar> {
                   });
                 },
               ),
-              SizedBox(
-                width: 140,
-                child: TextField(
+              if (widget.deviceCache != null)
+                DeviceIdField(
                   controller: _deviceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Device ID',
-                    isDense: true,
-                    border: OutlineInputBorder(),
+                  cache: widget.deviceCache!,
+                  onDeviceSelected: _onDeviceSelected,
+                )
+              else
+                SizedBox(
+                  width: 140,
+                  child: TextField(
+                    controller: _deviceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Device ID',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(
-                width: 140,
-                child: TextField(
-                  controller: _eventIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Event ID',
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
               SizedBox(
                 width: 160,
                 child: TextField(
@@ -224,10 +296,10 @@ class FilterBarState extends State<FilterBar> {
                     _to = null;
                     _selectedLevels.clear();
                     _deviceController.clear();
-                    _eventIdController.clear();
                     _propertyController.clear();
                     _searchController.clear();
                     _validationError = null;
+                    _appliedFilter = const LogFilter();
                   });
                   widget.onClear();
                 },
@@ -235,6 +307,7 @@ class FilterBarState extends State<FilterBar> {
               ),
             ],
           ),
+          ActiveFilterChips(chips: activeChips),
           if (_validationError != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),

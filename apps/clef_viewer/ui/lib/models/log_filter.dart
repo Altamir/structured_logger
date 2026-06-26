@@ -102,23 +102,25 @@ class LogFilter {
     return true;
   }
 
+  static const _unset = Object();
+
   LogFilter copyWith({
-    DateTime? from,
-    DateTime? to,
+    Object? from = _unset,
+    Object? to = _unset,
     List<String>? levels,
-    String? deviceId,
-    String? eventId,
-    String? property,
-    String? search,
+    Object? deviceId = _unset,
+    Object? eventId = _unset,
+    Object? property = _unset,
+    Object? search = _unset,
   }) {
     return LogFilter(
-      from: from ?? this.from,
-      to: to ?? this.to,
+      from: identical(from, _unset) ? this.from : from as DateTime?,
+      to: identical(to, _unset) ? this.to : to as DateTime?,
       levels: levels ?? this.levels,
-      deviceId: deviceId ?? this.deviceId,
-      eventId: eventId ?? this.eventId,
-      property: property ?? this.property,
-      search: search ?? this.search,
+      deviceId: identical(deviceId, _unset) ? this.deviceId : deviceId as String?,
+      eventId: identical(eventId, _unset) ? this.eventId : eventId as String?,
+      property: identical(property, _unset) ? this.property : property as String?,
+      search: identical(search, _unset) ? this.search : search as String?,
     );
   }
 }

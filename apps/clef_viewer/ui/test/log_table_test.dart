@@ -11,6 +11,7 @@ void main() {
         level: 'info',
         messageTemplate: 'Hello {name}',
         deviceId: 'my-device',
+        properties: {'name': 'Alice'},
       ),
       LogEntry(
         timestamp: '2024-01-01T12:00:02.000Z',
@@ -28,7 +29,8 @@ void main() {
     );
 
     expect(find.text('Events (2 total)'), findsOneWidget);
-    expect(find.text('Hello {name}'), findsOneWidget);
+    expect(find.textContaining('Hello'), findsOneWidget);
+    expect(find.textContaining('Alice'), findsOneWidget);
     expect(find.text('Request failed'), findsOneWidget);
     expect(find.text('device: my-device'), findsOneWidget);
   });
