@@ -40,4 +40,6 @@ website/node_modules/
 website/build/
 website/.docusaurus/
 .wrangler/
-plans/
+plans/*
+!plans/01-clef-viewer/
+!plans/01-clef-viewer/**

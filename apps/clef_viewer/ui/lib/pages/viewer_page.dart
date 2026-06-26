@@ -119,6 +119,7 @@ class _ViewerPageState extends State<ViewerPage> {
 
     setState(() {
       _events = [entry, ..._events];
+      _total++;
       if (_events.length > maxInMemory) {
         _events = _events.sublist(0, maxInMemory);
       }
