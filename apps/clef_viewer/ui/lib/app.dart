@@ -19,7 +19,7 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CLEF Viewer',
+      title: 'CLEF Viewer - POC',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
