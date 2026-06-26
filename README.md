@@ -1,6 +1,8 @@
 # Structured Logs
 structured_logger
 
+**Documentação e blog:** [https://structured-logger.altamir.dev](https://structured-logger.altamir.dev)
+
 ## Description
 The ``structured_logger`` package provides an easy way to implement structured logs in your Flutter applications. It allows sending logs to different destinations, such as the terminal or external services, through interfaces called ``Sinks``. The package includes a sample Sink, SimpleLineSink, which sends logs to the terminal.
 
