@@ -1,3 +1,22 @@
+## 0.1.2
+
+* Added dartdoc comments for public API elements.
+* Added `example/` directory for pub.dev documentation score.
+
+## 0.1.1
+
+* Fixed `SinkSeq` to send `Content-Type` header for CLEF payloads.
+* Fixed CLEF reserved fields (`@t`, `@mt`, `@l`, `DeviceIdentifier`) being overwritten by `event.data`.
+* Added `SinkSeq.close()` to dispose internally created `http.Client` instances.
+* Fixed URL validation to throw `ArgumentError` in release builds.
+* Fixed endpoint URL construction when `seqUrl` has a trailing slash.
+
+## 0.1.0
+
+* Added `SinkSeq` for sending structured logs to Seq (migrated from `structure_logs_sink_seq`).
+* Added optional `http.Client` parameter to `SinkSeq` for testability.
+* Added `http` dependency.
+
 ## 0.0.2
 
 * Fix readme.

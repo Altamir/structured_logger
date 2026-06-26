@@ -38,6 +38,18 @@ LogSink defaultlog = DefaultSink();
 logger.addSink(defaultlog);
 ```
 
+To send logs to a [Seq](https://datalust.co/seq) server, use `SinkSeq`:
+
+```dart
+logger.addSink(SinkSeq(
+  'https://your-seq-server-url',
+  apiKey: 'your-api-key',
+  deviceIdentifier: 'my-device',
+));
+```
+
+Call `close()` on the sink when discarding it in long-lived apps to release the internal HTTP connection pool.
+
 Register logs using the log method:
 
 ```dart
@@ -58,5 +70,5 @@ Fist line is written by SimpleLineSink, and second line is written by DefaultSin
 
 
 
-This is a simple example, and you can customize Sinks and log data as needed. For example, you can create a Sink that sends logs to an external service, such as Seq or Elastic. (Or use another package that already does this, such as (WIP)).
+This is a simple example, and you can customize Sinks and log data as needed.
 
