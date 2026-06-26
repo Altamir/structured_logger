@@ -26,7 +26,7 @@ RUN flutter pub get
 
 COPY apps/clef_viewer/ui .
 # Same-origin API via nginx reverse proxy (empty CLEF_VIEWER_API).
-RUN flutter build web --release --web-renderer html --dart-define=CLEF_VIEWER_API=
+RUN flutter build web --release --no-wasm-dry-run --dart-define=CLEF_VIEWER_API=
 
 FROM nginx:alpine
 
