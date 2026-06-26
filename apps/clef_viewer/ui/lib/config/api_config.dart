@@ -2,6 +2,7 @@
 ///
 /// - `CLEF_VIEWER_API` unset → `http://localhost:5341` (dev)
 /// - `CLEF_VIEWER_API=` (empty at build) → same-origin relative paths (Docker/nginx)
+/// - `CLEF_VIEWER_VERSION` set at Docker/CI build → shown in UI
 class ApiConfig {
   static const String _unset = '__unset__';
 
@@ -15,6 +16,12 @@ class ApiConfig {
     }
     return 'http://localhost:5341';
   }
+
+  /// Git SHA or tag baked in at `flutter build --dart-define`.
+  static const String appVersion = String.fromEnvironment(
+    'CLEF_VIEWER_VERSION',
+    defaultValue: 'dev',
+  );
 
   static const String adminKeyStorageKey = 'clef_viewer_admin_key';
 
@@ -31,4 +38,12 @@ class ApiConfig {
 
   /// True when API calls use the page origin (production behind nginx).
   static bool get isSameOrigin => baseUrl.isEmpty;
+
+  /// Short label for UI (7-char SHA or full if shorter).
+  static String shortLabel(String version) {
+    final trimmed = version.trim();
+    if (trimmed.isEmpty) return '?';
+    if (trimmed.length <= 7) return trimmed;
+    return trimmed.substring(0, 7);
+  }
 }

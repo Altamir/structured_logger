@@ -12,6 +12,7 @@ class AppConfig {
   final int maxBatchEvents;
   final int maxBatchBytes;
   final bool devMode;
+  final String version;
 
   const AppConfig({
     required this.port,
@@ -24,6 +25,7 @@ class AppConfig {
     required this.maxBatchEvents,
     required this.maxBatchBytes,
     this.devMode = false,
+    this.version = 'dev',
   });
 
   factory AppConfig.fromEnvironment() {
@@ -44,6 +46,7 @@ class AppConfig {
         int.tryParse(Platform.environment['MAX_BATCH_BYTES'] ?? '') ??
             (10 * 1048576);
     final devMode = Platform.environment['DEV_MODE'] == 'true';
+    final version = Platform.environment['CLEF_VIEWER_VERSION'] ?? 'dev';
 
     if (adminApiKey == null && !devMode) {
       stderr.writeln(
@@ -71,6 +74,7 @@ class AppConfig {
       maxBatchEvents: maxBatchEvents,
       maxBatchBytes: maxBatchBytes,
       devMode: devMode,
+      version: version,
     );
   }
 

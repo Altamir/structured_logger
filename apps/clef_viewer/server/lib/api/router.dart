@@ -72,7 +72,11 @@ Handler createHandler({
   router.get('/health', (Request request) async {
     final count = await repository.count();
     return Response.ok(
-      jsonEncode({'status': 'ok', 'events': count}),
+      jsonEncode({
+        'status': 'ok',
+        'events': count,
+        'version': config.version,
+      }),
       headers: {'Content-Type': 'application/json'},
     );
   });

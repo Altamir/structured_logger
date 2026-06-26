@@ -52,6 +52,8 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
+          build-args: |
+            CLEF_VIEWER_VERSION=${{ github.sha }}
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest

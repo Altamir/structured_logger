@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'models/log_filter.dart';
 import 'pages/admin_page.dart';
 import 'pages/viewer_page.dart';
+import 'widgets/version_bar.dart';
 
 class ClefViewerApp extends StatefulWidget {
   const ClefViewerApp({super.key});
@@ -26,6 +27,10 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
       home: Scaffold(
         appBar: AppBar(
           title: const Text('CLEF Viewer'),
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(28),
+            child: VersionBar(),
+          ),
           actions: [
             TextButton(
               onPressed: () => setState(() => _index = 0),

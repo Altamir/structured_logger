@@ -20,13 +20,17 @@ RUN git clone --depth 1 -b stable https://github.com/flutter/flutter.git "${FLUT
 
 FROM flutter-base AS build
 
+ARG CLEF_VIEWER_VERSION=dev
+
 WORKDIR /app
 COPY apps/clef_viewer/ui/pubspec.yaml apps/clef_viewer/ui/pubspec.lock ./
 RUN flutter pub get
 
 COPY apps/clef_viewer/ui .
 # Same-origin API via nginx reverse proxy (empty CLEF_VIEWER_API).
-RUN flutter build web --release --no-wasm-dry-run --dart-define=CLEF_VIEWER_API=
+RUN flutter build web --release --no-wasm-dry-run \
+    --dart-define=CLEF_VIEWER_API= \
+    --dart-define=CLEF_VIEWER_VERSION=${CLEF_VIEWER_VERSION}
 
 FROM nginx:alpine
 

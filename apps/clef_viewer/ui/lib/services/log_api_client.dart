@@ -85,13 +85,18 @@ class LogApiClient {
       throw Exception('Health check failed');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return HealthStatus(events: data['events'] as int);
+    return HealthStatus(
+      events: data['events'] as int,
+      version: data['version'] as String? ?? 'unknown',
+    );
   }
 }
 
 class HealthStatus {
   final int events;
-  HealthStatus({required this.events});
+  final String version;
+
+  HealthStatus({required this.events, required this.version});
 }
 
 class UnauthorizedException implements Exception {}
