@@ -43,3 +43,5 @@ website/.docusaurus/
 plans/*
 !plans/01-clef-viewer/
 !plans/01-clef-viewer/**
+!plans/02-melhoria-ux-clef-viwer/
+!plans/02-melhoria-ux-clef-viwer/**
