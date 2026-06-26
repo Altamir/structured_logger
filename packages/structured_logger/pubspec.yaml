@@ -1,0 +1,16 @@
+name: structured_logger
+description: Structured logging for Dart with pluggable CLEF-compatible sinks.
+version: 1.0.0
+homepage: https://github.com/Altamir/structured_logger
+repository: https://github.com/Altamir/structured_logger
+
+environment:
+  sdk: ^3.6.0
+resolution: workspace
+
+dependencies:
+  http: ^1.1.0
+
+dev_dependencies:
+  test: ^1.25.8
+  lints: ^6.0.0

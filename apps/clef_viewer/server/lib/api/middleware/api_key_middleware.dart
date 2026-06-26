@@ -1,9 +1,10 @@
 import 'package:shelf/shelf.dart';
-import '../../clef/seq_constants.dart';
+import 'package:structured_logger/structured_logger.dart';
 
 import '../errors.dart';
 
-Middleware apiKeyMiddleware({required String? expectedKey, required bool required}) {
+Middleware apiKeyMiddleware(
+    {required String? expectedKey, required bool required}) {
   return (Handler inner) {
     return (Request request) {
       if (!required && expectedKey == null) {

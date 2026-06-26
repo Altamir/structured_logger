@@ -50,8 +50,8 @@ class ClefParser {
   LogEntry parseObject(Map<String, dynamic> json) {
     _checkSize(json);
 
-    final timestamp = json['@t'] as String? ??
-        DateTime.now().toUtc().toIso8601String();
+    final timestamp =
+        json['@t'] as String? ?? DateTime.now().toUtc().toIso8601String();
     final level = json['@l'] as String? ?? 'information';
 
     final properties = <String, dynamic>{};

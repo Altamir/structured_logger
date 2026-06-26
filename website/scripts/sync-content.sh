@@ -30,8 +30,8 @@ sync_dir() {
 }
 
 # pt-BR blog (default locale)
-sync_dir "${ROOT_DIR}/doc/blog" "${ROOT_DIR}/website/blog" true README.md
+sync_dir "${ROOT_DIR}/docs/blog" "${ROOT_DIR}/website/blog" true README.md
 
 # en docs and blog (i18n)
-sync_dir "${ROOT_DIR}/doc/en" "${ROOT_DIR}/website/i18n/en/docusaurus-plugin-content-docs/current" true blog README.md
-sync_dir "${ROOT_DIR}/doc/en/blog" "${ROOT_DIR}/website/i18n/en/docusaurus-plugin-content-blog" false README.md
+sync_dir "${ROOT_DIR}/docs/en" "${ROOT_DIR}/website/i18n/en/docusaurus-plugin-content-docs/current" true blog README.md
+sync_dir "${ROOT_DIR}/docs/en/blog" "${ROOT_DIR}/website/i18n/en/docusaurus-plugin-content-blog" false README.md

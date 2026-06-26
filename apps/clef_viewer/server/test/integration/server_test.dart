@@ -12,7 +12,7 @@ import 'package:clef_viewer_server/models/log_filter.dart';
 import 'package:clef_viewer_server/stream/event_broadcaster.dart';
 import 'package:http/http.dart' as http;
 import 'package:shelf/shelf_io.dart' as shelf_io;
-import 'package:clef_viewer_server/clef/seq_constants.dart';
+import 'package:structured_logger/structured_logger.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -125,9 +125,8 @@ void main() {
       );
 
       final query = await http.get(uri('/api/events'));
-      final event =
-          (jsonDecode(query.body) as Map<String, dynamic>)['events'].first
-              as Map<String, dynamic>;
+      final event = (jsonDecode(query.body) as Map<String, dynamic>)['events']
+          .first as Map<String, dynamic>;
       expect(event['timestamp'], '2024-01-01T00:00:00.000Z');
       expect(event['messageTemplate'], 'Hello {name}');
       expect(event['level'], 'info');
@@ -170,7 +169,8 @@ void main() {
       expect(await repository.count(), 0);
     });
 
-    test('pretty-printed single JSON with CLEF content-type is accepted', () async {
+    test('pretty-printed single JSON with CLEF content-type is accepted',
+        () async {
       const body = '''
 {
   "@mt": "pretty",
@@ -295,12 +295,11 @@ not-json
       );
 
       expect(response.statusCode, 200);
-      expect(response.headers['content-type'], contains('application/x-ndjson'));
+      expect(
+          response.headers['content-type'], contains('application/x-ndjson'));
 
-      final lines = response.body
-          .split('\n')
-          .where((l) => l.trim().isNotEmpty)
-          .toList();
+      final lines =
+          response.body.split('\n').where((l) => l.trim().isNotEmpty).toList();
       expect(lines, isNotEmpty);
       final clef = jsonDecode(lines.first) as Map<String, dynamic>;
       expect(clef['@mt'], 'export me');
@@ -314,7 +313,8 @@ not-json
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
         },
-        body: jsonEncode({'@mt': 'a', '@l': 'error', '@t': '2024-01-01T00:00:00Z'}),
+        body: jsonEncode(
+            {'@mt': 'a', '@l': 'error', '@t': '2024-01-01T00:00:00Z'}),
       );
       await http.post(
         uri('/api/events/raw', {'clef': ''}),
@@ -322,16 +322,16 @@ not-json
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
         },
-        body: jsonEncode({'@mt': 'b', '@l': 'info', '@t': '2024-01-01T00:00:01Z'}),
+        body: jsonEncode(
+            {'@mt': 'b', '@l': 'info', '@t': '2024-01-01T00:00:01Z'}),
       );
 
       final response = await http.get(
         uri('/api/events/group', {'group_by': 'level'}),
       );
       expect(response.statusCode, 200);
-      final groups =
-          (jsonDecode(response.body) as Map<String, dynamic>)['groups']
-              as List<dynamic>;
+      final groups = (jsonDecode(response.body)
+          as Map<String, dynamic>)['groups'] as List<dynamic>;
       expect(groups, isNotEmpty);
     });
 
@@ -345,7 +345,8 @@ not-json
       expect(response.statusCode, 400);
     });
 
-    test('groups by group_property while filtering on property param', () async {
+    test('groups by group_property while filtering on property param',
+        () async {
       await http.post(
         uri('/api/events/raw', {'clef': ''}),
         headers: {
@@ -383,9 +384,8 @@ not-json
         }),
       );
       expect(response.statusCode, 200);
-      final groups =
-          (jsonDecode(response.body) as Map<String, dynamic>)['groups']
-              as List<dynamic>;
+      final groups = (jsonDecode(response.body)
+          as Map<String, dynamic>)['groups'] as List<dynamic>;
       expect(groups, hasLength(2));
     });
 
@@ -453,7 +453,8 @@ not-json
       client.close(force: true);
     });
 
-    test('POST ingest delivers event on SSE stream through router stack', () async {
+    test('POST ingest delivers event on SSE stream through router stack',
+        () async {
       final db = openMemoryDatabase();
       final repo = LogRepository(db, maxRows: 100000);
       await repo.ensureSchema();
@@ -481,7 +482,8 @@ not-json
         Request('GET', Uri.parse('http://localhost/api/events/stream')),
       );
       expect(sseResponse.statusCode, 200);
-      expect(sseResponse.headers['content-type'], contains('text/event-stream'));
+      expect(
+          sseResponse.headers['content-type'], contains('text/event-stream'));
 
       final sub = sseResponse.read().transform(utf8.decoder).listen((chunk) {
         buffer += chunk;

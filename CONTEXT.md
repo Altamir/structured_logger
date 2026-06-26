@@ -1,8 +1,26 @@
-# Structured Logger / CLEF Viewer
+# Structured Logger Monorepo
 
-Biblioteca Dart de logging estruturado com sinks CLEF (Seq-compatible) e webapp CLEF Viewer para ingestão, consulta e visualização de eventos de log.
+Monorepo de logging estruturado CLEF: pacote core Dart, pacotes de integração, apps (CLEF Viewer e futuros), documentação e site.
 
 ## Language
+
+### Deliverables
+
+**Structured Logger**:
+Pacote Dart core de logging estruturado com sinks plugáveis; sem dependência do Flutter SDK.
+_Avoid_: plugin, pacote Flutter (para o core)
+
+**Dio Seq Interceptor** (`structured_logger_dio_interceptor`):
+Pacote que intercepta requisições Dio e emite Log Events (REQUEST, RESPONSE, ON_ERROR) via um **Structure Logger** já configurado com sinks pelo consumidor.
+_Avoid_: dio_interceptor_seq (nome legado do repositório externo)
+
+**Structure Logger**:
+Logger central que distribui Log Events para os **Sinks** registrados via `addSink`.
+_Avoid_: logger, StructureLogger (ok em código)
+
+**CLEF Viewer**:
+App em `apps/clef_viewer` — servidor Dart VM + UI Flutter Web para ingestão, consulta e visualização de Log Events.
+_Avoid_: clef view (grafia informal)
 
 ### CLEF & log events
 
@@ -46,6 +64,9 @@ _Avoid_: filter badge, filter tag
 
 ## Relationships
 
+- O monorepo contém um **Structured Logger** (core), zero ou mais pacotes de integração (ex.: **Dio Seq Interceptor**), e um ou mais apps (ex.: **CLEF Viewer**)
+- **Dio Seq Interceptor** depende de **Structured Logger**; recebe uma instância de **Structure Logger** já configurada e emite **Log Events** pelos sinks registrados (ex.: SinkSeq)
+- **CLEF Viewer** ingere **Log Events** enviados por apps que usam **Structured Logger** ou **Dio Seq Interceptor**
 - Um **Log Event** tem opcionalmente um **Message Template**, um **Rendered Message**, e zero ou mais **Properties**
 - O **Display Message** deriva do **Rendered Message** ou do **Message Template** + **Properties**
 - Um **Log Event** tem no máximo um **Device Identifier**
@@ -59,3 +80,4 @@ _Avoid_: filter badge, filter tag
 ## Flagged ambiguities
 
 - "mensagem renderizada" no requisito original misturava **Rendered Message** (`@m`) e **Display Message** — resolvido: Display Message é o termo canônico para o card.
+- Versão do **Structured Logger** na migração Dart puro: **1.0.0** — marco de estabilidade Dart-first; API pública inalterada.

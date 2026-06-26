@@ -22,14 +22,18 @@ migrate_working_dir/
 #.vscode/
 
 # Flutter/Dart/Pub related
-# Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
-/pubspec.lock
+# Root pubspec.lock MUST be committed for workspace reproducibility (single lockfile, Docker, CI).
+# Sub-packages (packages/** and apps/**) must not commit their own locks.
+# See: https://dart.dev/tools/pub/workspaces
+**/pubspec.lock
+!pubspec.lock
+# Explicit for example (pure Dart CLI) cleanliness; covered by ** but explicit is clearer.
 # Dart API docs gerados por `dart doc` (preserva .md do Docusaurus)
-doc/api/**
-!doc/api/
-!doc/api/**
-!doc/api/*.md
-!doc/api/_category_.json
+docs/api/**
+!docs/api/
+!docs/api/**
+!docs/api/*.md
+!docs/api/_category_.json
 .dart_tool/
 .packages
 build/

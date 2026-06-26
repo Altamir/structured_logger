@@ -1,6 +1,6 @@
 # Documentation site (not part of the package)
 website/
-doc/
+docs/
 plans/
 
 # Build artifacts

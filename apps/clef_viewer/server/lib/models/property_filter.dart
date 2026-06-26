@@ -1,5 +1,4 @@
 import 'filter_constants.dart';
-import 'validation_exception.dart';
 
 /// A single property equality filter (key = value).
 class PropertyFilter {

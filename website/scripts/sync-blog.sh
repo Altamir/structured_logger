@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SRC="${ROOT_DIR}/doc/blog"
+SRC="${ROOT_DIR}/docs/blog"
 DEST="${ROOT_DIR}/website/blog"
 
 if [[ ! -d "${SRC}" ]]; then

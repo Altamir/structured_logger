@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write     # needed for calling clef-viewer-images reusable workflow
+  deployments: write  # needed for calling deploy-docs reusable workflow
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20   # accommodates cold melos bootstrap + analyze + tests (NFR)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Flutter (for UI tests only)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get root dependencies
+        run: dart pub get
+
+      - name: Activate Melos
+        run: dart pub global activate melos --version 8.0.0
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+        # Produces single root pubspec.lock; respects categories and resolution
+
+      - name: Analyze + Test (Dart + Flutter)
+        run: melos run ci
+        # Defined in root pubspec melos: section as:
+        # analyze && analyze:flutter && test:dart && test:flutter
+
+  # Only run image builds and docs deployment after tests pass
+  build-images:
+    needs: test
+    if: needs.test.result == 'success' && (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    uses: ./.github/workflows/clef-viewer-images.yml
+    secrets: inherit
+
+  deploy-docs:
+    needs: test
+    if: needs.test.result == 'success' && (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    uses: ./.github/workflows/deploy-docs.yml
+    secrets: inherit

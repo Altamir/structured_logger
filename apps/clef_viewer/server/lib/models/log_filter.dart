@@ -36,8 +36,7 @@ class LogFilter {
           .toList();
     }
 
-    final propertyFilters =
-        PropertyFilterCodec.parseParam(params['property']);
+    final propertyFilters = PropertyFilterCodec.parseParam(params['property']);
 
     return LogFilter(
       from: _parseDate(params['from']),
