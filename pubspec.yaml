@@ -15,7 +15,7 @@ workspace:
   - apps/clef_viewer/ui
 
 dev_dependencies:
-  melos: ^7.0.0
+  melos: ^7.8.2
 
 melos:
   repository: https://github.com/Altamir/structured_logger
