@@ -24,7 +24,15 @@ const config: Config = {
 
   i18n: {
     defaultLocale: 'pt-BR',
-    locales: ['pt-BR'],
+    locales: ['pt-BR', 'en'],
+    localeConfigs: {
+      'pt-BR': {
+        label: 'Português',
+      },
+      en: {
+        label: 'English',
+      },
+    },
   },
 
   presets: [
@@ -72,6 +80,10 @@ const config: Config = {
           label: 'Documentação',
         },
         {to: 'blog', label: 'Blog', position: 'left'},
+        {
+          type: 'localeDropdown',
+          position: 'right',
+        },
         {
           href: 'https://github.com/Altamir/structured_logger',
           label: 'GitHub',

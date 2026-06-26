@@ -34,8 +34,8 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
 
-      - name: Sync blog from doc/blog
-        run: bash website/scripts/sync-blog.sh
+      - name: Sync doc and blog content
+        run: bash website/scripts/sync-content.sh
 
       - name: Install dependencies
         working-directory: website

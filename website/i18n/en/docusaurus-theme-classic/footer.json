@@ -1,0 +1,34 @@
+{
+  "link.title.Documentação": {
+    "message": "Documentation",
+    "description": "Footer documentation section title"
+  },
+  "link.title.Comunidade": {
+    "message": "Community",
+    "description": "Footer community section title"
+  },
+  "link.item.label.Introdução": {
+    "message": "Introduction",
+    "description": "Footer link to introduction"
+  },
+  "link.item.label.Início rápido": {
+    "message": "Quick start",
+    "description": "Footer link to quick start"
+  },
+  "link.item.label.Integração Seq": {
+    "message": "Seq integration",
+    "description": "Footer link to Seq guide"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Footer link to GitHub"
+  },
+  "link.item.label.pub.dev": {
+    "message": "pub.dev",
+    "description": "Footer link to pub.dev"
+  },
+  "copyright": {
+    "message": "Copyright © {year} structured_logger. Built with Docusaurus.",
+    "description": "Footer copyright"
+  }
+}

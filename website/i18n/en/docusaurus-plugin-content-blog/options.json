@@ -1,0 +1,10 @@
+{
+  "title": {
+    "message": "Blog",
+    "description": "Blog title"
+  },
+  "description": {
+    "message": "Articles about structured_logger and logging in Flutter",
+    "description": "Blog description"
+  }
+}

@@ -1,0 +1,34 @@
+flutter:
+  label: Flutter
+  permalink: /flutter
+  description: Articles about Flutter development
+
+logging:
+  label: Logging
+  permalink: /logging
+  description: Logging practices and tools
+
+structured-logging:
+  label: Structured Logging
+  permalink: /structured-logging
+  description: Structured logs and observability
+
+seq:
+  label: Seq
+  permalink: /seq
+  description: Seq and CLEF integration
+
+clef:
+  label: CLEF
+  permalink: /clef
+  description: Compact Log Event Format
+
+observability:
+  label: Observability
+  permalink: /observability
+  description: Monitoring and observability
+
+release:
+  label: Release
+  permalink: /release
+  description: Version announcements and release notes

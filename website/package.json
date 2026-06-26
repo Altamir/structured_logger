@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "prestart": "npm run sync:blog",
+    "prestart": "npm run sync:content",
     "start": "docusaurus start",
+    "sync:content": "bash scripts/sync-content.sh",
     "sync:blog": "bash scripts/sync-blog.sh",
-    "prebuild": "npm run sync:blog",
+    "prebuild": "npm run sync:content",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",

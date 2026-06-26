@@ -1,0 +1,22 @@
+{
+  "title": {
+    "message": "structured_logger",
+    "description": "Navbar title"
+  },
+  "item.label.Documentação": {
+    "message": "Documentation",
+    "description": "Navbar item for documentation"
+  },
+  "item.label.Blog": {
+    "message": "Blog",
+    "description": "Navbar item for blog"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Navbar item for GitHub"
+  },
+  "item.label.pub.dev": {
+    "message": "pub.dev",
+    "description": "Navbar item for pub.dev"
+  }
+}
