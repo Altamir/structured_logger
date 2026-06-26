@@ -40,12 +40,15 @@ npm run serve
 
 O workflow `.github/workflows/deploy-docs.yml` publica o site no GitHub Pages a cada push em `main` ou `master` que altere `doc/` ou `website/`.
 
-### Configuração no repositório
+### Configuração no repositório (obrigatório, uma vez)
 
-1. **Settings → Pages → Build and deployment**
-2. **Source:** GitHub Actions
-3. Após o primeiro push com o workflow, o site ficará em:
-   `https://altamir.github.io/structured_logger/`
+1. Abra **Settings → Pages → Build and deployment**
+2. Em **Source**, selecione **GitHub Actions** (não "Deploy from a branch")
+3. Salve e rode o workflow novamente (**Actions → Deploy documentation → Run workflow**)
+
+Sem esse passo o job `deploy` falha com `404` / "Ensure GitHub Pages has been enabled".
+
+Após o deploy, o site ficará em: `https://altamir.github.io/structured_logger/`
 
 ### Deploy manual (opcional)
 
