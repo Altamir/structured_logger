@@ -242,15 +242,16 @@ apps/clef_viewer/
 |-----|--------|-----------|
 | R1 — Ingestão CLEF | **Implementado** | `ingest_handler.dart`, integração + `SinkSeq` redirect HTTPS |
 | R2 — SQLite | **Implementado** | `server/lib/db/`, schema híbrido + FIFO |
-| R3 — Tempo real | **Quase** | SSE server OK; UI web corrigida com `EventSource` — **aguarda redeploy webapp** |
+| R3 — Tempo real | **Implementado** | `shelf.io.buffer_output: false` (`42d126d`) + `EventSource.onMessage` — validado na VPS |
 | R4 — Filtros | **Implementado** | `LogFilter` server/UI + `filter_bar.dart` |
 | R5 — Agrupamentos | **Implementado** | `group_handler.dart` + `group_panel.dart` |
 | R6 — Admin | **Implementado** | `admin_handler.dart` + `admin_page.dart` |
 | NFR | **Implementado** | Porta 5341, env vars, stderr logging |
 | Deploy VPS | **Implementado** | GHCR + Hostinger Docker Manager + Traefik |
 | Pacote `SinkSeq` | **Corrigido** | Redirect 301/308; removida dep. Flutter |
+| Versão deploy | **Implementado** | Barra `webapp · server` na UI (`c74a8d2`) |
 
-**Testes:** 47 server + 4 UI — passando.
+**Testes:** 50 server + 4 UI — passando.
 
 **Produção:** VPS Hostinger com `clef.altamir.dev` (UI) e `clef-ingest.altamir.dev` (ingest).
 
@@ -270,6 +271,8 @@ apps/clef_viewer/
 - [x] **integration-docs** — README + Docker Compose
 - [x] **deploy-vps** — imagens GHCR, compose Hostinger, Traefik
 - [x] **fix-sinkseq-https** — redirect Traefik no `SinkSeq`
-- [x] **fix-sse-web** — `EventSource` no Flutter Web
-- [ ] **redeploy-webapp** — publicar imagem webapp com fix SSE na VPS
-- [ ] **acceptance-checklist** — Validação manual EARS ([TASKS.md#aceitação-manual](TASKS.md#aceitação-manual))
+- [x] **fix-sse-web** — `EventSource` + `onMessage` + nginx/servidor (`fb58f95`, `d1d5257`)
+- [x] **version-bar** — versão webapp/server na UI (`c74a8d2`)
+- [x] **fix-sse-buffer** — `shelf.io.buffer_output: false` no `SseHandler` (`42d126d`)
+- [x] **redeploy-vps** — SSE tempo real validado em `clef.altamir.dev`
+- [ ] **acceptance-checklist** — Demais itens EARS ([TASKS.md#aceitação-manual](TASKS.md#aceitação-manual))

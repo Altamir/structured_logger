@@ -28,6 +28,16 @@ Registro de desvios e decisões tomadas durante a implementação em relação a
 - Compose: `https://raw.githubusercontent.com/Altamir/structured_logger/master/apps/clef_viewer/docker-compose.yml`
 - Imagens: `ghcr.io/altamir/clef-viewer-server`, `ghcr.io/altamir/clef-viewer-webapp`
 
+### Variáveis no painel Hostinger
+
+**Obrigatórias** (sem mudança desde o deploy inicial):
+
+- `ADMIN_API_KEY`, `INGEST_API_KEY`
+- `CLEF_UI_HOST`, `CLEF_INGEST_HOST`
+- `CLEF_VIEWER_PORT_MAPPING`, `CLEF_VIEWER_UI_PORT_MAPPING`
+
+**Não obrigatórias** para versão ou SSE — `CLEF_VIEWER_VERSION` é injetada no build da imagem pelo CI (`github.sha`).
+
 ---
 
 ## 2026-06-26 — Correções produção
@@ -36,18 +46,48 @@ Registro de desvios e decisões tomadas durante a implementação em relação a
 
 - **Sintoma:** `Error sending logs to Seq: Permanent Redirect`
 - **Causa:** Traefik redireciona `http://` → `https://`; `http` package não segue POST em 301
-- **Correção:** `SinkSeq` repete POST no `Location`; apps devem preferir `https://` na URL de ingest
+- **Correção:** `SinkSeq` repete POST no `Location` (`95cea6c`); apps devem usar `https://` na URL de ingest
 
 ### CI Docker webapp (exit 64)
 
 - **Causa:** flag `--web-renderer html` removida no Flutter 3.38+
-- **Correção:** `flutter build web --release --no-wasm-dry-run`
+- **Correção:** `flutter build web --release --no-wasm-dry-run` (`adc1abc`)
 
 ### SSE não atualiza UI em tempo real (VPS)
 
+Iteração 1 (`fb58f95`):
+
 - **Causa:** `SseClient` usava streaming `http.Client` — não funciona no Flutter Web
 - **Correção:** `sse_client_web.dart` com `EventSource` + export condicional
-- **Status:** implementado no código; **pendente redeploy** da imagem `clef-viewer-webapp`
+
+Iteração 2 (`d1d5257`):
+
+- **Causa adicional:** `addEventListener('log')` pouco confiável; buffering nginx/Traefik; `ApiConfig` podia apontar para `localhost` no build
+- **Correções:**
+  - Servidor envia SSE como mensagem padrão (`data:` sem `event: log`); heartbeat em comentário `: heartbeat`
+  - Cliente usa `EventSource.onMessage` + URL absoluta (`window.location.origin`)
+  - nginx: `gzip off`, `X-Accel-Buffering no` em `/api/events/stream`
+  - Headers anti-buffer no `sse_handler.dart`
+
+Iteração 3 (`42d126d`) — **causa raiz**:
+
+- **Sintoma:** `curl -N /api/events/stream` retornava HTTP 200 mas **0 bytes** (local e VPS)
+- **Causa:** `shelf_io` bufferiza corpos chunked por padrão (`HttpResponse.bufferOutput = true`); o stream SSE nunca era enviado ao socket
+- **Correção:** `context: {'shelf.io.buffer_output': false}` na `Response` do `SseHandler`
+- **Complementos:**
+  - Testes TCP reais com `shelf_io` (`sse_shelf_io_test.dart`, `sse_async_star_test.dart`)
+  - Fallback na UI: polling silencioso a cada 3s (`viewer_page.dart`) se proxy bloquear SSE
+  - nginx: `proxy_request_buffering off`, `add_header ... always`
+  - Traefik: `loadbalancer.responseForwarding.flushInterval=1ms` no router da UI
+
+- **Status:** **validado em produção** (`clef.altamir.dev`) — logs aparecem em tempo real sem Apply
+
+### Versão visível na UI (`c74a8d2`)
+
+- Barra abaixo do AppBar: `webapp abc1234 · server abc1234`
+- **webapp:** `--dart-define=CLEF_VIEWER_VERSION` no build Flutter (CI passa `github.sha`)
+- **server:** `GET /health` → campo `version` (`ENV` na imagem Docker)
+- Prefixos iguais confirmam que ambos os containers foram atualizados juntos
 
 ---
 
@@ -57,17 +97,15 @@ Registro de desvios e decisões tomadas durante a implementação em relação a
 
 - **Plano:** reutilizar `seq_constants.dart` do pacote
 - **Implementado:** cópia local em `server/lib/clef/seq_constants.dart`
-- **Motivo:** build Docker do server sem Flutter SDK (`dart pub get` falhava)
+- **Motivo:** build Docker do server sem Flutter SDK
 
 ### UI API same-origin
 
-- **Plano:** `CLEF_VIEWER_API` opcional em dev
-- **Implementado:** build Docker com `CLEF_VIEWER_API=` vazio → URIs relativas; nginx faz proxy para `server:5341`
+- Build Docker com `CLEF_VIEWER_API=` vazio → URIs relativas; nginx faz proxy para `server:5341`
 
 ### `SinkSeq` sem Flutter
 
-- **Plano:** pacote com `flutter` SDK
-- **Implementado:** `_kDebugMode` via `bool.fromEnvironment('dart.vm.product')` — example virou CLI puro
+- `_kDebugMode` via `bool.fromEnvironment('dart.vm.product')` — example virou CLI puro
 
 ---
 
@@ -75,8 +113,8 @@ Registro de desvios e decisões tomadas durante a implementação em relação a
 
 | Req | Impacto |
 |-----|---------|
-| R3 — Tempo real | Critério 3 dependia de SSE no browser; corrigido com `EventSource` (T32) |
-| NFR — Portabilidade | Mantido para `dart run`; produção via containers |
+| R3 — Tempo real | SSE: `buffer_output: false` no shelf_io + `EventSource.onMessage`; validado na VPS |
+| NFR — Observabilidade | Versão de deploy visível na UI e em `/health` |
 | Out of scope — cloud | **Removido** do out-of-scope; deploy VPS entrou no escopo entregue |
 
 ---
@@ -88,4 +126,7 @@ Registro de desvios e decisões tomadas durante a implementação em relação a
 | `08ff662` | feat(clef-viewer): app completo + compose + CI |
 | `adc1abc` | fix(clef-viewer): build web Docker CI |
 | `95cea6c` | fix(sink-seq): redirect http→https no POST |
-| _(local)_ | fix(ui): SSE EventSource para Flutter Web — aguarda commit |
+| `fb58f95` | fix(clef-viewer): SSE EventSource no Flutter Web |
+| `d1d5257` | fix(clef-viewer): SSE produção (onMessage, nginx, servidor) |
+| `c74a8d2` | feat(clef-viewer): versão webapp/server na UI |
+| `42d126d` | fix(clef-viewer): SSE realtime (`shelf.io.buffer_output`) |

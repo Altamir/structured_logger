@@ -2,7 +2,7 @@
 
 **Baseado em:** [clef-viewer-requirements.md](clef-viewer-requirements.md)  
 **Data:** 2026-06-26  
-**Status:** Implementado — em operação na VPS; ver [TASKS.md](TASKS.md) e [ALTERACOES.md](ALTERACOES.md)
+**Status:** Implementado — em operação na VPS (`clef.altamir.dev`); SSE tempo real validado (`42d126d`). Ver [TASKS.md](TASKS.md) e [ALTERACOES.md](ALTERACOES.md).
 
 ---
 
@@ -140,8 +140,10 @@ HTTP POST → ApiKeyMiddleware → IngestHandler
 ```
 Browser → GET /api/events/stream (SSE)
   → SseHandler subscribes EventBroadcaster
-  → on new LogEntry: emit "event: log\ndata: {json}\n\n"
-  → every 30s: emit "event: heartbeat\ndata: {}\n\n"
+  → on connect: emit ": connected\n\n"
+  → on new LogEntry: emit "data: {json}\n\n"
+  → every 30s: emit ": heartbeat\n\n"
+  → Response context: shelf.io.buffer_output = false (obrigatório para shelf_io)
 ```
 
 **Consulta com filtros:**
@@ -274,6 +276,20 @@ apps/clef_viewer/
 **Rationale:** Requisito é server-push; SSE atende com menos código e reconexão trivial.
 
 **Implications:** `EventBroadcaster` usa `StreamController<LogEntry>.broadcast()`; heartbeat timer de 30s no `SseHandler`.
+
+---
+
+### Decision: Desabilitar buffer do shelf_io para SSE
+
+**Context:** Respostas chunked com `Stream<List<int>>` no `shelf_io` não chegavam ao cliente (HTTP 200, 0 bytes) — nem em testes TCP locais nem na VPS.
+
+**Causa:** `HttpResponse.bufferOutput` é `true` por padrão no adapter `shelf_io`.
+
+**Decision:** Toda resposta SSE define `context: {'shelf.io.buffer_output': false}`.
+
+**Rationale:** Única forma confiável de streaming em tempo real com `dart:io`; proxies (nginx/Traefik) são camada adicional, não substituem esse flag.
+
+**Implications:** Testes de integração devem usar `HttpClient` real (`sse_shelf_io_test.dart`), não apenas `response.read()` in-process.
 
 ---
 
@@ -629,25 +645,33 @@ Compatível com `SinkSeq`.
 
 **Headers response:**
 ```
-Content-Type: text/event-stream
-Cache-Control: no-cache
+Content-Type: text/event-stream; charset=utf-8
+Cache-Control: no-cache, no-transform
 Connection: keep-alive
+X-Accel-Buffering: no
 ```
+
+**Response context (shelf_io):**
+```dart
+context: {'shelf.io.buffer_output': false}
+```
+Sem isso, o servidor retorna HTTP 200 mas **0 bytes** no corpo (buffer interno do `dart:io`).
 
 **Events:**
 
-| event type | data | When |
-|------------|------|------|
-| `log` | `LogEntry` JSON | Novo evento ingerido |
-| `heartbeat` | `{}` | A cada 30s sem eventos |
+| Formato | Conteúdo | When |
+|---------|----------|------|
+| `: connected\n\n` | comentário SSE | Ao conectar |
+| `data: {json}\n\n` | `LogEntry` JSON (mensagem padrão) | Novo evento ingerido |
+| `: heartbeat\n\n` | comentário SSE | A cada 30s |
 
 **Example:**
 ```
-event: log
+: connected
+
 data: {"id":43,"timestamp":"2024-01-01T00:00:01.000Z","level":"info",...}
 
-event: heartbeat
-data: {}
+: heartbeat
 
 ```
 
@@ -726,6 +750,7 @@ AppBar com link Viewer ↔ Admin.
 
 **Behaviors:**
 - SSE conecta ao montar; botão Pause desconecta/reconecta
+- Fallback: polling silencioso a cada 3s se SSE falhar atrás de proxy
 - Novos eventos aparecem no topo; lista limitada a 1000 em memória
 - Clique em grupo aplica filtro e alterna painel para lista
 - `LogRow` expandível mostra `properties` JSON formatado
@@ -916,10 +941,11 @@ services:
     image: ghcr.io/altamir/clef-viewer-webapp:latest
 ```
 
-- CI: `.github/workflows/clef-viewer-images.yml`
+- CI: `.github/workflows/clef-viewer-images.yml` — injeta `CLEF_VIEWER_VERSION=${{ github.sha }}` no build
 - webapp nginx → `http://server:5341` (rede interna Compose)
 - Traefik: labels em `docker-compose.yml` (`CLEF_UI_HOST`, `CLEF_INGEST_HOST`)
 - Firewall: `80`/`443` com Traefik; ingest exposto em subdomínio HTTPS
+- **Sem variáveis novas no painel** para versão ou SSE — redeploy com pull de `:latest` basta
 
 ### Flutter App Integration
 
@@ -933,12 +959,23 @@ final sink = SinkSeq(
 
 ### SSE no Flutter Web
 
-| Plataforma | Implementação |
-|------------|---------------|
-| Browser (produção) | `sse_client_web.dart` — `dart:html` `EventSource`, evento `log` |
-| VM / testes | `sse_client_io.dart` — `http.Client` stream |
+| Camada | Detalhe |
+|--------|---------|
+| Servidor | `shelf.io.buffer_output: false`; `data: {json}\n\n`; `: connected` / `: heartbeat`; `X-Accel-Buffering: no` |
+| nginx | `gzip off`, `proxy_buffering off`, `proxy_request_buffering off` em `/api/events/stream` |
+| Traefik | `clef-sse` middleware + `flushInterval=1ms` no router da UI |
+| Browser | `sse_client_web.dart` — `EventSource.onMessage`, URL absoluta same-origin |
+| UI fallback | `viewer_page.dart` — polling 3s silencioso |
+| VM / testes | `sse_client_io.dart` — `http.Client` stream; `sse_shelf_io_test.dart` valida TCP real |
 
 Export condicional em `ui/lib/services/sse_client.dart`.
+
+### Versão de deploy na UI
+
+- Widget `VersionBar` no `AppBar.bottom`
+- Exibe `webapp <sha7> · server <sha7>` — prefixos devem coincidir após redeploy conjunto
+- Server: `GET /health` → `{ "status", "events", "version" }`
+- Webapp: `String.fromEnvironment('CLEF_VIEWER_VERSION')` no build Docker/CI
 
 ---
 
@@ -971,7 +1008,9 @@ Export condicional em `ui/lib/services/sse_client.dart`.
 
 1. ~~Implementar server + UI~~ ✅
 2. ~~Deploy VPS Hostinger + GHCR~~ ✅
-3. **Redeploy webapp** com fix SSE (`EventSource`) — [T32](TASKS.md)
-4. Executar [checklist de aceitação manual](TASKS.md#aceitação-manual)
-5. Publicar nova versão `structured_logger` com fix `SinkSeq` redirect
-6. (Backlog) Migrar `dart:html` → `package:web`; tags versionadas nas imagens GHCR
+3. ~~Fix SSE (`EventSource` + `onMessage` + nginx)~~ ✅ — [T32](TASKS.md)
+4. ~~Barra de versão na UI~~ ✅ — [T35](TASKS.md)
+5. ~~SSE shelf_io (`buffer_output: false`)~~ ✅ — `42d126d`, validado em produção
+6. Executar [checklist de aceitação manual](TASKS.md#aceitação-manual) (itens restantes)
+7. Publicar nova versão `structured_logger` com fix `SinkSeq` redirect
+8. (Backlog) Migrar `dart:html` → `package:web`; grupos em tempo real via SSE

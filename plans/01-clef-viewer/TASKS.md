@@ -1,6 +1,6 @@
 # CLEF Viewer — Tasks
 
-Última atualização: 2026-06-26
+Última atualização: 2026-06-26 (pós `42d126d` — SSE validado em produção)
 
 Legenda: ✅ concluído · 🔄 em progresso · ⏳ pendente · 🚫 cancelado
 
@@ -20,7 +20,7 @@ Legenda: ✅ concluído · 🔄 em progresso · ⏳ pendente · 🚫 cancelado
 | T08 | SSE server (`/api/events/stream`) | ✅ | `sse_handler.dart`, `event_broadcaster.dart` |
 | T09 | UI Viewer (tabela, filtros, grupos, pause) | ✅ | `viewer_page.dart`, widgets |
 | T10 | UI Admin (delete, export, API key) | ✅ | `admin_page.dart` |
-| T11 | Testes server (47) | ✅ | `dart test` em `server/` |
+| T11 | Testes server (50) | ✅ | `dart test` em `server/` (incl. SSE shelf_io TCP) |
 | T12 | Testes UI (4) | ✅ | `flutter test` em `ui/` |
 | T13 | README + quick start | ✅ | `apps/clef_viewer/README.md` |
 
@@ -38,7 +38,7 @@ Legenda: ✅ concluído · 🔄 em progresso · ⏳ pendente · 🚫 cancelado
 | T25 | Labels Traefik (UI + ingest) | ✅ | `docker-compose.yml` |
 | T26 | Deploy Hostinger Docker Manager | ✅ | VPS em produção |
 | T27 | Pacotes GHCR públicos | ⏳ | Verificar visibilidade em GitHub → Packages |
-| T28 | Checklist aceitação EARS manual | ⏳ | Ver [TASKS.md#aceitação-manual](#aceitação-manual) |
+| T28 | Checklist aceitação EARS manual | 🔄 | SSE + versão OK; demais itens abaixo |
 
 ---
 
@@ -46,11 +46,13 @@ Legenda: ✅ concluído · 🔄 em progresso · ⏳ pendente · 🚫 cancelado
 
 | ID | Task | Status | Notas |
 |----|------|--------|-------|
-| T30 | Build web CI (`--web-renderer` removido Flutter 3.38) | ✅ | commit `adc1abc` |
-| T31 | `SinkSeq` redirect HTTP→HTTPS (Traefik 301) | ✅ | commit `95cea6c` — usar `https://` ou atualizar pacote |
-| T32 | SSE tempo real no Flutter Web (`EventSource`) | 🔄 | código pronto; **aguarda rebuild webapp na VPS** |
+| T30 | Build web CI (`--web-renderer` removido Flutter 3.38) | ✅ | `adc1abc` |
+| T31 | `SinkSeq` redirect HTTP→HTTPS (Traefik 301) | ✅ | `95cea6c` — preferir `https://` na URL |
+| T32 | SSE tempo real (Flutter Web + shelf_io) | ✅ | `42d126d` — `shelf.io.buffer_output: false`; validado na VPS |
+| T36 | Fallback polling 3s na UI | ✅ | `viewer_page.dart` — backup se proxy bloquear SSE |
 | T33 | Remover dependência Flutter do `SinkSeq` | ✅ | `_kDebugMode` sem `package:flutter` |
 | T34 | Constantes CLEF locais no server (build Docker) | ✅ | `server/lib/clef/seq_constants.dart` |
+| T35 | Barra de versão na UI (webapp + server) | ✅ | `c74a8d2` — `VersionBar` + `/health.version` |
 
 ---
 
@@ -58,14 +60,16 @@ Legenda: ✅ concluído · 🔄 em progresso · ⏳ pendente · 🚫 cancelado
 
 Checklist rápido pós-deploy (operador):
 
-- [ ] `curl https://<ingest-host>/health` → 200
-- [ ] `curl https://<ui-host>/health` → 200 (via nginx)
-- [ ] `SinkSeq` com `https://<ingest-host>` + `INGEST_API_KEY` → log aparece na UI **sem** clicar Apply
-- [ ] Filtros Apply/Clear funcionam
-- [ ] Agrupamento por level + clique aplica filtro
-- [ ] Admin: export NDJSON e delete com confirmação
+- [x] `curl https://<ingest-host>/health` → 200
+- [x] `curl https://<ui-host>/health` → 200 (via nginx)
+- [x] Barra de versão: `webapp XXXXXXX · server XXXXXXX` (prefixos **iguais**)
+- [x] `curl -N https://<ui-host>/api/events/stream` retorna `: connected` imediatamente
+- [x] `SinkSeq` com `https://<ingest-host>` + `INGEST_API_KEY` → log na UI **sem** Apply
+- [x] Filtros Apply/Clear funcionam
+- [x] Agrupamento por level + clique aplica filtro
+- [x] Admin: export NDJSON e delete com confirmação
 - [ ] Pause/Resume interrompe e retoma SSE
-- [ ] Volume `clef_data` persiste após restart dos containers
+- [x] Volume `clef_data` persiste após restart dos containers
 
 ---
 
@@ -76,5 +80,5 @@ Checklist rápido pós-deploy (operador):
 | T40 | Publicar `structured_logger` com fix `SinkSeq` redirect | Média |
 | T41 | Atualizar contagem de grupos em tempo real (SSE) | Baixa |
 | T42 | Migrar `dart:html` → `package:web` (deprecation) | Baixa |
-| T43 | Tag/versionar imagens GHCR (não só `:latest`) | Baixa |
+| T43 | Pin de imagem por SHA no compose (opcional) | Baixa — versão já visível na UI |
 | T44 | Documentar variáveis no painel Hostinger (screenshot) | Baixa |
