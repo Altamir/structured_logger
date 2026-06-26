@@ -35,11 +35,9 @@ class AppConfig {
     final adminApiKey = _emptyToNull(Platform.environment['ADMIN_API_KEY']);
     final maxRows =
         int.tryParse(Platform.environment['MAX_ROWS'] ?? '') ?? 100000;
-    final staticPath =
-        Platform.environment['STATIC_PATH'] ?? '../ui/build/web';
+    final staticPath = Platform.environment['STATIC_PATH'] ?? '../ui/build/web';
     final maxEventBytes =
-        int.tryParse(Platform.environment['MAX_EVENT_BYTES'] ?? '') ??
-            1048576;
+        int.tryParse(Platform.environment['MAX_EVENT_BYTES'] ?? '') ?? 1048576;
     final maxBatchEvents =
         int.tryParse(Platform.environment['MAX_BATCH_EVENTS'] ?? '') ?? 1000;
     final maxBatchBytes =

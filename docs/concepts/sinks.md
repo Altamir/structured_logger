@@ -55,6 +55,7 @@ Consulte o [guia de integração com Seq](../guides/seq-integration) para detalh
 ```dart
 final logger = StructureLogger();
 
+const bool kDebugMode = !bool.fromEnvironment('dart.vm.product');
 if (kDebugMode) {
   logger.addSink(SimpleLineSink());
   logger.addSink(DefaultSink());

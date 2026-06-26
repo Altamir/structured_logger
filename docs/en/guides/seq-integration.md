@@ -65,7 +65,7 @@ If you inject a custom `client`, the sink **does not** close it — lifecycle st
 
 ## Error handling
 
-Network failures or HTTP responses outside 200–201 are logged with `print` **only in debug mode** (`kDebugMode`). In release, failures are silent to avoid impacting UX.
+Network failures or HTTP responses outside 200–201 are logged with `print` **only in debug mode** (using `!bool.fromEnvironment('dart.vm.product')`). In release, failures are silent to avoid impacting UX. (Flutter apps may equivalently use `kDebugMode`.)
 
 ## Trailing slash URLs
 

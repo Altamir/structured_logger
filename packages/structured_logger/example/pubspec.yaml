@@ -1,0 +1,10 @@
+name: structured_logger_example
+description: Demonstrates how to use the structured_logger package.
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  structured_logger:
+    path: ../

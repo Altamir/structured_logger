@@ -11,12 +11,13 @@ Durante o desenvolvimento, a combinação de `SimpleLineSink` e `DefaultSink` co
 ## Configuração recomendada
 
 ```dart
-import 'package:flutter/foundation.dart';
 import 'package:structured_logger/structured_logger.dart';
 
 final logger = StructureLogger();
 
 void setupLogging() {
+  // Equivalente Dart ao kDebugMode (funciona em Dart puro/CLI/server também)
+  const bool kDebugMode = !bool.fromEnvironment('dart.vm.product');
   if (kDebugMode) {
     logger.addSink(SimpleLineSink());
     logger.addSink(DefaultSink());
@@ -24,8 +25,10 @@ void setupLogging() {
 }
 ```
 
-- **SimpleLineSink** — leitura rápida no terminal (`flutter run`).
-- **DefaultSink** — inspeção no Flutter DevTools e no painel de logs do IDE.
+- **SimpleLineSink** — leitura rápida no terminal (`dart run` ou `flutter run`).
+- **DefaultSink** — inspeção no DevTools / painel de logs do IDE.
+
+**Somente em Flutter** você pode continuar usando `kDebugMode` de `package:flutter/foundation.dart` se preferir.
 
 ## Níveis de log
 

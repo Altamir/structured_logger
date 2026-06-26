@@ -51,9 +51,7 @@ class GroupHandler {
         propertyName = params['group_property'];
         if (propertyName == null || propertyName.isEmpty) {
           final legacy = params['property'];
-          if (legacy != null &&
-              legacy.isNotEmpty &&
-              !legacy.contains('=')) {
+          if (legacy != null && legacy.isNotEmpty && !legacy.contains('=')) {
             propertyName = legacy;
           }
         }

@@ -1,12 +1,14 @@
 ---
 sidebar_position: 2
 title: Quick start
-description: Emit your first structured log in Flutter.
+description: Emit your first structured log (Flutter-oriented example; Dart-first setup in installation.md).
 ---
 
 # Quick start
 
 This guide covers the minimum flow: create the logger, register sinks, and emit an event.
+
+> Note: While the package is Dart-first, this quick-start uses Flutter-flavored examples. See installation.md for `dart pub add` primary path.
 
 ## 1. Create the logger
 

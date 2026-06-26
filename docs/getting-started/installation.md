@@ -1,21 +1,35 @@
 ---
 sidebar_position: 1
 title: Instalação
-description: Como adicionar structured_logger ao seu projeto Flutter.
+description: Como adicionar structured_logger ao seu projeto Dart ou Flutter.
 ---
 
 # Instalação
 
-Adicione **structured_logger** como dependência no `pubspec.yaml` do seu app ou pacote:
+Adicione **structured_logger** como dependência (Dart-first):
+
+```bash
+dart pub add structured_logger
+```
+
+Ou para app Flutter:
+
+```bash
+flutter pub add structured_logger
+```
+
+Adicione ao `pubspec.yaml` (ou use o comando):
 
 ```yaml
 dependencies:
-  structured_logger: ^0.1.2
+  structured_logger: ^1.0.0
 ```
 
 Em seguida, baixe as dependências:
 
 ```bash
+dart pub get
+# ou
 flutter pub get
 ```
 
@@ -33,11 +47,11 @@ O pacote declara `http` como dependência (usada pelo `SinkSeq`). Você não pre
 
 ## Exemplo incluído
 
-O repositório contém um app de exemplo em `example/`. Para executá-lo:
+O repositório contém um app de exemplo em `example/`. Para executá-lo (CLI Dart puro):
 
 ```bash
 cd example
-flutter run
+dart run lib/main.dart
 ```
 
-O exemplo registra `SimpleLineSink` e `DefaultSink` e emite um log de demonstração.
+O exemplo registra `SimpleLineSink` e `DefaultSink` e emite um log de demonstração. (Apps Flutter continuam usando o pacote normalmente via `flutter pub add`.)

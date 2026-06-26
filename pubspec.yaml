@@ -1,22 +1,46 @@
-name: structured_logger
-description: Another logging package, but for structured logging, with the concept of sinks for log output
-version: 0.1.2
-homepage: https://github.com/Altamir/structured_logger
+name: structured_logger_workspace
+publish_to: none
+description: Workspace for structured_logger Dart-pure monorepo
+version: 0.0.0  # meta only
 
 environment:
-  sdk: '>=3.1.5 <4.0.0'
-  flutter: ">=1.17.0"
+  sdk: ^3.6.0   # pub workspaces minimum; local 3.38.x
 
-dependencies:
-  flutter:
-    sdk: flutter
-  http: ^1.1.0
+workspace:
+  # Explicit list (instead of packages/* glob) for Dart < 3.11 compatibility.
+  # Design shows glob example; globs require Dart >=3.11. Melos categories still use globs.
+  - packages/structured_logger
+  - packages/structured_logger_dio_interceptor
+  - apps/clef_viewer/server
+  - apps/clef_viewer/ui
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^6.0.0
+  melos: ^7.0.0
 
-flutter:
+melos:
+  repository: https://github.com/Altamir/structured_logger
 
+  categories:
+    dart:
+      - packages/**
+      - apps/**/server
+    flutter:
+      - apps/**/ui
+
+  scripts:
+    analyze:
+      run: melos exec --fail-fast -- dart analyze --fatal-infos .
+      description: Analyze all Dart packages
+    analyze:flutter:
+      run: melos exec --fail-fast --category=flutter -- flutter analyze --fatal-infos .
+      description: Flutter analyze for UI
+    test:dart:
+      run: melos exec --fail-fast --category=dart -- dart test
+      description: Run tests for Dart-only packages (core + interceptor + server)
+    test:flutter:
+      run: melos exec --fail-fast --category=flutter -- flutter test
+      description: Run Flutter tests for UI
+    ci:
+      run: melos run analyze && melos run analyze:flutter && melos run test:dart && melos run test:flutter
+      description: Full CI pipeline
  

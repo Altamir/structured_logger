@@ -65,7 +65,7 @@ Se você injetar um `client` customizado, o sink **não** fecha esse client — 
 
 ## Tratamento de erros
 
-Falhas de rede ou respostas HTTP fora do intervalo 200–201 são registradas com `print` **apenas em modo debug** (`kDebugMode`). Em release, falhas são silenciosas para não impactar a UX.
+Falhas de rede ou respostas HTTP fora do intervalo 200–201 são registradas com `print` **apenas em modo debug** (usando `!bool.fromEnvironment('dart.vm.product')`). Em release, falhas são silenciosas para não impactar a UX. (Apps Flutter podem usar `kDebugMode` equivalentemente.)
 
 ## URL com barra final
 

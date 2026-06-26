@@ -1,12 +1,11 @@
 import 'dart:convert';
 
 import 'package:shelf/shelf.dart';
-import '../clef/seq_constants.dart';
+import 'package:structured_logger/structured_logger.dart';
 
 import '../clef/clef_parser.dart';
 import '../config.dart';
 import '../db/log_repository.dart';
-import '../models/log_entry.dart';
 import '../stream/event_broadcaster.dart';
 import 'errors.dart';
 
@@ -76,7 +75,8 @@ class IngestHandler {
     return _ingestBody(body, emptyResponse: false);
   }
 
-  Future<Response> _ingestBody(String body, {required bool emptyResponse}) async {
+  Future<Response> _ingestBody(String body,
+      {required bool emptyResponse}) async {
     try {
       final entry = parser.parseJsonString(body);
       final saved = await repository.insert(entry);

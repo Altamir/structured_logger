@@ -49,7 +49,8 @@ void main() {
       });
       filter.validate();
       final (where, params) = filter.toSql();
-      expect(where, contains(r'''json_extract(properties, '$."Source.Context"')'''));
+      expect(where,
+          contains(r'''json_extract(properties, '$."Source.Context"')'''));
       expect(params, contains('my-app'));
     });
 

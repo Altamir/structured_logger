@@ -8,7 +8,8 @@ import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('publishes ingested log events on SSE stream within 2 seconds', () async {
+  test('publishes ingested log events on SSE stream within 2 seconds',
+      () async {
     final broadcaster = EventBroadcaster();
     final handler = SseHandler(broadcaster: broadcaster);
 

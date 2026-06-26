@@ -23,7 +23,8 @@ class QueryHandler {
       if (limit > 1000) limit = 1000;
       if (offset < 0) offset = 0;
 
-      final result = await repository.query(filter, limit: limit, offset: offset);
+      final result =
+          await repository.query(filter, limit: limit, offset: offset);
       return Response.ok(
         jsonEncode(result.toJson()),
         headers: {'Content-Type': 'application/json'},

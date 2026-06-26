@@ -2,12 +2,12 @@
 sidebar_position: 1
 slug: /
 title: Introduction
-description: Structured logging package for Flutter with pluggable sinks.
+description: Structured logging package for Dart (and Flutter) with pluggable sinks.
 ---
 
 # structured_logger
 
-**structured_logger** is a Flutter package for structured logging. Instead of plain strings, you emit events with a **level**, **message template**, and **properties** — and route each event to one or more pluggable **sinks**.
+**structured_logger** is a Dart package for structured logging (with full Flutter support). Instead of plain strings, you emit events with a **level**, **message template**, and **properties** — and route each event to one or more pluggable **sinks**.
 
 ## Why structured logging?
 
