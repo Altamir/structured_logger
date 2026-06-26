@@ -1,24 +1,24 @@
-/// Level of the log
-/// for filtering and importance
+/// Severity levels used when emitting logs through [StructureLogger].
 enum LogLevel {
-  /// information level logging
+  /// Informational events.
   info,
 
-  /// warning level logging
+  /// Potentially harmful situations.
   warning,
 
-  /// debug level logging
+  /// Detailed diagnostic information.
   debug,
 
-  /// error level logging
+  /// Error events that may still allow the app to continue.
   error,
 
-  /// verbose level logging
+  /// Fine-grained tracing, more detailed than [debug].
   verbose,
 }
 
+/// String values for [LogLevel] used in serialized log output.
 extension LogLevelExtension on LogLevel {
-  /// returns the string representation of the log level
+  /// Returns the level name stored in [LogModel.level].
   String get sValue => switch (this) {
         LogLevel.info => "info",
         LogLevel.warning => "warning",
