@@ -15,7 +15,7 @@ workspace:
   - apps/clef_viewer/ui
 
 dev_dependencies:
-  melos: ^7.8.2
+  melos: ^8.0.0
 
 melos:
   repository: https://github.com/Altamir/structured_logger
@@ -29,7 +29,7 @@ melos:
 
   scripts:
     analyze:
-      run: melos exec --fail-fast -- dart analyze --fatal-infos .
+      run: melos exec --fail-fast --category=dart -- dart analyze --fatal-infos .
       description: Analyze all Dart packages
     analyze:flutter:
       run: melos exec --fail-fast --category=flutter -- flutter analyze --fatal-infos .

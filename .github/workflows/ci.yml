@@ -39,7 +39,7 @@ jobs:
         run: dart pub get
 
       - name: Activate Melos
-        run: dart pub global activate melos --version 7.8.2
+        run: dart pub global activate melos --version 8.0.0
 
       - name: Bootstrap workspace
         run: melos bootstrap
