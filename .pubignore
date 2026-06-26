@@ -1,0 +1,12 @@
+# Documentation site (not part of the package)
+website/
+doc/
+plans/
+
+# Build artifacts
+build/
+.dart_tool/
+
+# CI and deployment
+.github/
+wrangler.toml
