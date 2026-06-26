@@ -1,0 +1,6 @@
+name = "structured-logger"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "./website/build"
+
+# Account ID for API/CI (public, not a secret)
+# CLOUDFLARE_ACCOUNT_ID=9da0c90849945330726c5272d56b74d8

@@ -7,8 +7,8 @@ const config: Config = {
   tagline: 'Logging estruturado para Flutter com sinks plugáveis',
   favicon: 'img/logo.svg',
 
-  url: 'https://altamir.github.io',
-  baseUrl: '/structured_logger/',
+  url: 'https://structured-logger.altamir.dev',
+  baseUrl: '/',
 
   organizationName: 'Altamir',
   projectName: 'structured_logger',
