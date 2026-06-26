@@ -1,0 +1,21 @@
+name: clef_viewer_ui
+description: CLEF Viewer Flutter Web UI.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.1.5 <4.0.0'
+  flutter: '>=3.13.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,17 @@
+name: clef_viewer_server
+description: CLEF Viewer HTTP server — ingest, query, SSE, and admin APIs.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.1.5 <4.0.0'
+
+dependencies:
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  shelf_static: ^1.1.3
+  sqlite3: ^2.4.6
+
+dev_dependencies:
+  test: ^1.25.8
+  http: ^1.1.0

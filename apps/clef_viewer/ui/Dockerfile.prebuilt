@@ -1,0 +1,10 @@
+# Build context: repository root (structured_logger/)
+# Fast path: Flutter Web must be built locally first:
+#   cd apps/clef_viewer/ui && flutter build web --release --dart-define=CLEF_VIEWER_API=
+
+FROM nginx:alpine
+
+COPY apps/clef_viewer/ui/build/web /usr/share/nginx/html
+COPY apps/clef_viewer/ui/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80

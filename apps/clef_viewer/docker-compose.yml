@@ -1,0 +1,66 @@
+# CLEF Viewer — produção (Hostinger Docker Manager / VPS).
+# Apenas imagens públicas — sem build. Cole no painel ou use "Compose from URL":
+#   https://raw.githubusercontent.com/Altamir/structured_logger/master/apps/clef_viewer/docker-compose.yml
+#
+# Dev local (build a partir do código):
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml -f docker-compose.dev.yml up --build
+
+name: clef_viewer
+
+services:
+  server:
+    image: ${CLEF_VIEWER_SERVER_IMAGE:-ghcr.io/altamir/clef-viewer-server:latest}
+    ports:
+      - "${CLEF_VIEWER_PORT_MAPPING:-127.0.0.1:5341:5341}"
+    environment:
+      PORT: "5341"
+      DB_PATH: /data/clef_viewer.db
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?Set ADMIN_API_KEY}
+      INGEST_API_KEY: ${INGEST_API_KEY:-}
+      MAX_ROWS: ${MAX_ROWS:-100000}
+      STATIC_PATH: /nonexistent
+    volumes:
+      - clef_data:/data
+    networks:
+      - clef_internal
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.clef-ingest.rule=Host(`${CLEF_INGEST_HOST:-localhost}`)
+      - traefik.http.routers.clef-ingest.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.clef-ingest.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.clef-ingest.service=clef-ingest
+      - traefik.http.services.clef-ingest.loadbalancer.server.port=5341
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5341/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  webapp:
+    image: ${CLEF_VIEWER_WEBAPP_IMAGE:-ghcr.io/altamir/clef-viewer-webapp:latest}
+    ports:
+      - "${CLEF_VIEWER_UI_PORT_MAPPING:-127.0.0.1:8080:80}"
+    depends_on:
+      server:
+        condition: service_healthy
+    networks:
+      - clef_internal
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.clef-ui.rule=Host(`${CLEF_UI_HOST:-localhost}`)
+      - traefik.http.routers.clef-ui.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.clef-ui.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.clef-ui.service=clef-ui
+      - traefik.http.services.clef-ui.loadbalancer.server.port=80
+      - traefik.http.middlewares.clef-sse.buffering.maxResponseBodyBytes=0
+      - traefik.http.routers.clef-ui.middlewares=clef-sse
+    restart: unless-stopped
+
+networks:
+  clef_internal:
+    driver: bridge
+
+volumes:
+  clef_data:

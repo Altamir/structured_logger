@@ -24,7 +24,7 @@ void main() {
         return Response('', 201);
       });
 
-      final sink = SinkSeq('https://seq.example.com', client: client);
+      final sink = SinkSeq('http://localhost:5341', client: client);
       await sink.write(LogModel(
         mt: 'Hello {name}',
         level: 'info',

@@ -1,10 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:structured_logger/src/logger/log_model.dart';
 import 'package:structured_logger/src/logger/log_sink.dart';
 import 'package:structured_logger/src/log_sinks/seq_constants.dart';
+
+const bool _kDebugMode = !bool.fromEnvironment('dart.vm.product');
 
 /// Sends structured log events to a [Seq](https://datalust.co/seq) server
 /// using the CLEF format.
@@ -94,12 +95,12 @@ class SinkSeq extends LogSink {
       );
 
       if (response.statusCode < 200 || response.statusCode >= 202) {
-        if (kDebugMode) {
+        if (_kDebugMode) {
           print('$ERROR_SEND_TO_SEQ ${response.body}');
         }
       }
     } catch (e) {
-      if (kDebugMode) {
+      if (_kDebugMode) {
         print('$ERROR_SEND_TO_SEQ $e');
       }
     }

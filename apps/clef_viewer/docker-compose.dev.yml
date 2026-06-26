@@ -1,0 +1,15 @@
+# Dev local — portas públicas, Traefik desligado.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.build.yml -f docker-compose.dev.yml up --build
+
+services:
+  server:
+    ports:
+      - "${CLEF_VIEWER_PORT_MAPPING:-5341:5341}"
+    labels:
+      - traefik.enable=false
+
+  webapp:
+    ports:
+      - "${CLEF_VIEWER_UI_PORT_MAPPING:-8080:80}"
+    labels:
+      - traefik.enable=false

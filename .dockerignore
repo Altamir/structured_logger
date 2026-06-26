@@ -1,0 +1,12 @@
+.git
+**/.dart_tool
+**/build
+!apps/clef_viewer/ui/build/web
+!apps/clef_viewer/ui/build/web/**
+doc
+website
+plans
+example
+.wrangler
+.github
+.grok

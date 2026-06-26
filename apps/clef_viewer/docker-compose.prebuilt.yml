@@ -1,0 +1,8 @@
+# Override: pula build Flutter no Docker (rode `flutter build web` antes).
+# Uso: docker compose -f docker-compose.yml -f docker-compose.build.yml -f docker-compose.prebuilt.yml up --build
+
+services:
+  webapp:
+    build:
+      context: ../..
+      dockerfile: apps/clef_viewer/ui/Dockerfile.prebuilt

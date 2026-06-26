@@ -6,7 +6,5 @@ environment:
   sdk: '>=3.1.5 <4.0.0'
 
 dependencies:
-  flutter:
-    sdk: flutter
   structured_logger:
     path: ../

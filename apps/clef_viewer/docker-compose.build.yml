@@ -1,0 +1,15 @@
+# Build local a partir do código-fonte (substitui as imagens públicas).
+# Uso: docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+
+services:
+  server:
+    build:
+      context: ../..
+      dockerfile: apps/clef_viewer/server/Dockerfile
+    image: ghcr.io/altamir/clef-viewer-server:local
+
+  webapp:
+    build:
+      context: ../..
+      dockerfile: apps/clef_viewer/ui/Dockerfile
+    image: ghcr.io/altamir/clef-viewer-webapp:local

@@ -1,13 +1,14 @@
-import 'package:flutter/widgets.dart';
 import 'package:structured_logger/structured_logger.dart';
 
-/// Minimal example: log to the console and the Dart developer log.
+/// Pure Dart CLI example — run with `dart run lib/main.dart` from the
+/// `example/` directory (no Flutter required).
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
   final logger = StructureLogger();
   logger.addSink(SimpleLineSink());
   logger.addSink(DefaultSink());
+  logger.addSink(
+    SinkSeq('http://localhost:5341', deviceIdentifier: 'debug-test'),
+  );
 
   await logger.log(
     'Welcome {name}, your level is {level}',
