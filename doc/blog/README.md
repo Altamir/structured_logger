@@ -1,11 +1,10 @@
-# Blog
+# Blog (pt-BR)
 
-Escreva os posts aqui. Antes do build (local ou CI), o script `website/scripts/sync-blog.sh` copia este conteúdo para `website/blog/`, que é o que o Docusaurus usa.
+Posts em português. Antes do build, `website/scripts/sync-content.sh` copia para `website/blog/`.
+
+Posts em inglês ficam em `doc/en/blog/` e são sincronizados para `website/i18n/en/`.
 
 ```bash
-# manual
-bash website/scripts/sync-blog.sh
-
-# ou via npm (roda automaticamente no prebuild)
-cd website && npm run build
+bash website/scripts/sync-content.sh
+# ou: cd website && npm run build
 ```
