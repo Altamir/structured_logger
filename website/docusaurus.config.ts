@@ -45,7 +45,7 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl:
             'https://github.com/Altamir/structured_logger/tree/master/doc/',
-          exclude: ['**/blog/**'],
+          exclude: ['**/blog/**', 'en/**'],
         },
         blog: {
           path: 'blog',
