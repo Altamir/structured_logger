@@ -72,8 +72,17 @@ jobs:
         with:
           sdk: stable
 
-      - name: Install Melos
-        run: dart pub global activate melos
+      - name: Setup Flutter (needed for Flutter packages in workspace like apps/clef_viewer/ui)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get root dependencies
+        run: dart pub get
+
+      - name: Activate Melos
+        run: dart pub global activate melos --version 8.0.0
 
       - name: Bootstrap workspace
         run: melos bootstrap
