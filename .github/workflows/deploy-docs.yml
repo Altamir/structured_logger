@@ -13,6 +13,16 @@ on:
         required: false
         default: ''
         type: string
+      is_dev:
+        description: 'Whether this is a develop pre-release deployment (deploy to develop CF branch)'
+        required: false
+        default: 'false'
+        type: string
+      checkout_ref:
+        description: 'Explicit ref or sha to checkout (used by automated release jobs)'
+        required: false
+        default: ''
+        type: string
   workflow_dispatch:
 
 concurrency:
@@ -28,6 +38,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref != '' && inputs.checkout_ref || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,13 +65,18 @@ jobs:
           if [[ "${{ inputs.is_pr }}" == "true" ]]; then
             echo "project=structured-logger" >> $GITHUB_OUTPUT
             echo "branch=pr-${{ inputs.pr_number }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ inputs.is_dev }}" == "true" ]]; then
+            # Pre-releases from develop
+            echo "project=structured-logger" >> $GITHUB_OUTPUT
+            echo "branch=develop" >> $GITHUB_OUTPUT
           else
+            # Stable / master
             echo "project=structured-logger" >> $GITHUB_OUTPUT
             echo "branch=master" >> $GITHUB_OUTPUT
           fi
 
       - name: Ensure Cloudflare Pages project exists
-        if: inputs.is_pr != 'true'
+        if: inputs.is_pr != 'true' && inputs.is_dev != 'true'
         uses: cloudflare/wrangler-action@v3
         continue-on-error: true
         with:

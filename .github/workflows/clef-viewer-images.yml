@@ -13,6 +13,16 @@ on:
         required: false
         default: ''
         type: string
+      is_dev:
+        description: 'Whether this is a develop pre-release build (DEV tags, no :latest)'
+        required: false
+        default: 'false'
+        type: string
+      checkout_ref:
+        description: 'Explicit ref or sha to checkout (used by automated release jobs)'
+        required: false
+        default: ''
+        type: string
   workflow_dispatch:
 
 concurrency:
@@ -41,6 +51,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref != '' && inputs.checkout_ref || github.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -57,7 +69,11 @@ jobs:
         run: |
           if [[ "${{ inputs.is_pr }}" == "true" ]]; then
             echo "tags=${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.run_number }}-DEV-PR" >> $GITHUB_OUTPUT
+          elif [[ "${{ inputs.is_dev }}" == "true" ]]; then
+            # DEV releases from develop (pre-release images, no :latest)
+            echo "tags=${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.run_number }}-DEV,${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}-DEV" >> $GITHUB_OUTPUT
           else
+            # Stable release / push to master
             echo "tags=${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.run_number }},${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest,${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
