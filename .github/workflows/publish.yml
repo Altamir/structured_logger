@@ -1,7 +1,17 @@
 name: Publish to pub.dev
 
-# Official setup for pub.dev OIDC Trusted Publishing
+# Official setup for pub.dev OIDC Trusted Publishing.
 # See: https://dart.dev/tools/pub/automated-publishing
+#
+# No pub.dev Admin (per package):
+# - Tag pattern: structured_logger-v{{version}} (or *-v{{version}})
+# - Enable workflow_dispatch events (and optionally push events)
+#
+# Workflow uses the official reusable:
+# uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+#
+# OIDC via id-token: write (no long-lived secret needed).
+# Custom dispatch kept for monorepo (select package + bump via UI).
 
 on:
   workflow_dispatch:
@@ -30,11 +40,12 @@ on:
         default: false
         type: boolean
 
+  # Also support the official tag-triggered flow
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
       - 'structured_logger-v[0-9]+.[0-9]+.[0-9]+*'
-      - 'structured_logger_dio_interceptor-v[0-9]+.[0-9]+.[0-9]+*'
+      - '*-v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
   contents: write
@@ -57,7 +68,7 @@ jobs:
         with:
           sdk: stable
 
-      - name: Setup Flutter (for monorepo packages that need it)
+      - name: Setup Flutter (for Flutter packages in the monorepo)
         uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -75,6 +86,12 @@ jobs:
       - name: Run CI checks
         run: melos run ci
 
+      - name: Clean working tree before versioning
+        # Revert any lockfile or artifact changes from bootstrap/CI so melos version sees a clean tree
+        run: |
+          git checkout -- .
+          git clean -fd
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
@@ -83,6 +100,8 @@ jobs:
       - name: Version packages
         run: |
           if [ "${{ inputs.prerelease }}" = "true" ]; then
+            # For prereleases we use conventional commits path + --prerelease
+            # (manual-version cannot be combined with --prerelease)
             if [ "${{ inputs.package }}" = "all" ]; then
               melos version --yes --prerelease
             else
@@ -90,9 +109,14 @@ jobs:
             fi
           else
             if [ "${{ inputs.package }}" = "all" ]; then
-              melos version --yes --manual-version "structured_logger:${{ inputs.bump }}" --manual-version "structured_logger_dio_interceptor:${{ inputs.bump }}"
+              melos version \
+                --yes \
+                --manual-version "structured_logger:${{ inputs.bump }}" \
+                --manual-version "structured_logger_dio_interceptor:${{ inputs.bump }}"
             else
-              melos version --yes --manual-version "${{ inputs.package }}:${{ inputs.bump }}"
+              melos version \
+                --yes \
+                --manual-version "${{ inputs.package }}:${{ inputs.bump }}"
             fi
           fi
 

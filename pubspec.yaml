@@ -56,8 +56,8 @@ melos:
       description: Full CI pipeline
     version:core:
       run: melos version --scope=structured_logger
-      description: Version only the core structured_logger package
+      description: Version only the core structured_logger package (uses conventional commits to decide bump, or pass --manual-version)
     version:interceptor:
       run: melos version --scope=structured_logger_dio_interceptor
-      description: Version only the dio interceptor package
+      description: Version only the dio interceptor package (uses conventional commits to decide bump, or pass --manual-version)
  
