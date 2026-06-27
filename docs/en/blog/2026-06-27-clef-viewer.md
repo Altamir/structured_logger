@@ -1,6 +1,6 @@
 ---
 slug: clef-viewer
-title: CLEF Viewer: a lightweight self-hosted viewer for CLEF logs
+title: "CLEF Viewer: a lightweight self-hosted viewer for CLEF logs"
 authors: [altamir]
 tags: [dart, logging, clef, seq, viewer]
 date: 2026-06-27T09:30:00
