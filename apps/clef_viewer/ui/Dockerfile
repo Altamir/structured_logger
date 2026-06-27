@@ -23,12 +23,21 @@ FROM flutter-base AS build
 
 ARG CLEF_VIEWER_VERSION=dev
 
-WORKDIR /app
-# Copy only pubspec.yaml (pubspec.lock is gitignored in monorepo; flutter pub get will resolve)
-COPY apps/clef_viewer/ui/pubspec.yaml ./
+WORKDIR /build
+# Copy root + all workspace manifests so resolution: workspace works.
+# (pubspec.lock is gitignored; flutter pub get will use root lock + manifests)
+COPY pubspec.yaml pubspec.lock ./
+COPY packages/structured_logger/pubspec.yaml packages/structured_logger/
+COPY packages/structured_logger_dio_interceptor/pubspec.yaml packages/structured_logger_dio_interceptor/
+COPY apps/clef_viewer/server/pubspec.yaml apps/clef_viewer/server/
+COPY apps/clef_viewer/ui/pubspec.yaml apps/clef_viewer/ui/
+
+# Copy ui sources
+COPY apps/clef_viewer/ui/ apps/clef_viewer/ui/
+
+WORKDIR /build/apps/clef_viewer/ui
 RUN flutter pub get
 
-COPY apps/clef_viewer/ui .
 # Same-origin API via nginx reverse proxy (empty CLEF_VIEWER_API).
 RUN flutter build web --release --no-wasm-dry-run \
     --dart-define=CLEF_VIEWER_API= \
@@ -36,7 +45,7 @@ RUN flutter build web --release --no-wasm-dry-run \
 
 FROM nginx:alpine
 
-COPY --from=build /app/build/web /usr/share/nginx/html
+COPY --from=build /build/apps/clef_viewer/ui/build/web /usr/share/nginx/html
 COPY apps/clef_viewer/ui/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

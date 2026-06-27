@@ -7,16 +7,15 @@ WORKDIR /build
 
 # 1. Copy only manifests first (better layer cache for pub get)
 # Note: all workspace members' pubspec.yaml are required because root pubspec.yaml
-# declares the full workspace list.
+# declares the full workspace list. For server build (dart only), temporarily
+# remove the flutter ui member so dart pub get succeeds without Flutter SDK.
 COPY pubspec.yaml pubspec.lock ./
+RUN sed -i '/- apps\/clef_viewer\/ui/d' pubspec.yaml
 COPY packages/structured_logger/pubspec.yaml packages/structured_logger/
 COPY packages/structured_logger_dio_interceptor/pubspec.yaml packages/structured_logger_dio_interceptor/
 COPY apps/clef_viewer/server/pubspec.yaml apps/clef_viewer/server/
-COPY apps/clef_viewer/ui/pubspec.yaml apps/clef_viewer/ui/
 
-# 2. Copy full sources for the packages we actually build (manifests for all
-#    workspace members were copied above so pub get at root can resolve the
-#    workspace list declared in root pubspec.yaml).
+# 2. Copy full sources for the packages we actually build.
 COPY packages/structured_logger/ packages/structured_logger/
 COPY apps/clef_viewer/server/ apps/clef_viewer/server/
 
