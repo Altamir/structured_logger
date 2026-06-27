@@ -103,22 +103,25 @@ jobs:
 
       - name: Version packages
         run: |
-          PRERELEASE_FLAG=""
           if [ "${{ inputs.prerelease }}" = "true" ]; then
-            PRERELEASE_FLAG="--prerelease"
-          fi
-
-          if [ "${{ inputs.package }}" = "all" ]; then
-            melos version \
-              --yes \
-              --manual-version "structured_logger:${{ inputs.bump }}" \
-              --manual-version "structured_logger_dio_interceptor:${{ inputs.bump }}" \
-              $PRERELEASE_FLAG
+            # For prereleases we use conventional commits path + --prerelease
+            # (manual-version cannot be combined with --prerelease)
+            if [ "${{ inputs.package }}" = "all" ]; then
+              melos version --yes --prerelease
+            else
+              melos version --yes --prerelease --scope=${{ inputs.package }}
+            fi
           else
-            melos version \
-              --yes \
-              --manual-version "${{ inputs.package }}:${{ inputs.bump }}" \
-              $PRERELEASE_FLAG
+            if [ "${{ inputs.package }}" = "all" ]; then
+              melos version \
+                --yes \
+                --manual-version "structured_logger:${{ inputs.bump }}" \
+                --manual-version "structured_logger_dio_interceptor:${{ inputs.bump }}"
+            else
+              melos version \
+                --yes \
+                --manual-version "${{ inputs.package }}:${{ inputs.bump }}"
+            fi
           fi
 
       - name: Push version bumps and tags
