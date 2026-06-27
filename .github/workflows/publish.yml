@@ -90,6 +90,12 @@ jobs:
       - name: Run CI checks
         run: melos run ci
 
+      - name: Clean working tree before versioning
+        # Revert any lockfile or artifact changes from bootstrap/CI so melos version sees a clean tree
+        run: |
+          git checkout -- .
+          git clean -fd
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
@@ -105,13 +111,13 @@ jobs:
           if [ "${{ inputs.package }}" = "all" ]; then
             melos version \
               --yes \
-              --release-as=${{ inputs.bump }} \
+              --manual-version "structured_logger:${{ inputs.bump }}" \
+              --manual-version "structured_logger_dio_interceptor:${{ inputs.bump }}" \
               $PRERELEASE_FLAG
           else
             melos version \
               --yes \
-              --scope=${{ inputs.package }} \
-              --release-as=${{ inputs.bump }} \
+              --manual-version "${{ inputs.package }}:${{ inputs.bump }}" \
               $PRERELEASE_FLAG
           fi
 
