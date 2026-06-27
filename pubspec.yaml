@@ -27,6 +27,17 @@ melos:
     flutter:
       - apps/**/ui
 
+  command:
+    version:
+      linkToCommits: true
+      workspaceChangelog: false
+      message: |
+        chore(release): publish {new_package_versions}
+
+    publish:
+      # Packages are published independently to pub.dev
+      # Use the GitHub workflow for automation
+
   scripts:
     analyze:
       run: melos exec --fail-fast --category=dart -- dart analyze --fatal-infos .
@@ -43,4 +54,10 @@ melos:
     ci:
       run: melos run analyze && melos run analyze:flutter && melos run test:dart && melos run test:flutter
       description: Full CI pipeline
+    version:core:
+      run: melos version --scope=structured_logger
+      description: Version only the core structured_logger package
+    version:interceptor:
+      run: melos version --scope=structured_logger_dio_interceptor
+      description: Version only the dio interceptor package
  
