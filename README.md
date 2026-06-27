@@ -102,51 +102,67 @@ This is a simple example, and you can customize Sinks and log data as needed.
 - `structured_logger_dio_interceptor` (Dio HTTP logging via StructureLogger + your sinks)
 - See `packages/` and docs for interceptor usage and migration from legacy `dio_interceptor_seq`.
 
-## Releasing new versions (pub.dev)
+## Releasing new versions (pub.dev) + Branching model
 
-Releases are fully automated via GitHub Actions using Melos.
+The repository uses a **develop / master** flow:
 
-### Workflow Features
-- Automatic version bumping (`melos version`)
-- Support for **prereleases**
-- Automatic **GitHub Release** creation (with generated notes)
-- Uses **OIDC Trusted Publishing** (no long-lived `credentials.json` secret required)
+- `develop` — integration branch. All feature PRs target `develop`.
+- `master` — stable. Only PRs from `develop` to `master` for final releases.
 
-### Prerequisites (seguindo o oficial do pub.dev)
-Faça isso **uma única vez** para cada pacote:
+### Automated flow (preferred)
 
-1. Acesse o Admin do pacote no pub.dev.
+1. Open PR → `develop` → CI runs tests + builds PR preview images/docs (`-DEV-PR`).
+2. **Approve** the PR → `release.yml` runs:
+   - Full CI
+   - `melos version --yes --prerelease --preid=DEV`
+   - Pushes tags like `structured_logger-vX.Y.Z-DEV.N` **and** `vX.Y.Z-DEV.N`
+   - Creates GitHub **pre-release**
+   - Publishes packages to pub.dev as **prerelease**
+   - Pushes DEV images (tags with `-DEV`, no `:latest`) + docs to CF `develop` branch
+3. When ready: open PR `develop` → `master`.
+4. On open → only tests + preview run.
+5. **Approve** → `release.yml` runs:
+   - `melos version --yes --graduate` (or conventional stable)
+   - Pushes final `vX.Y.Z` tags (prefixed + plain)
+   - Stable GitHub release
+   - Publishes final packages
+   - Updates images with `:latest` + docs to CF `master`
 
-2. Na seção **Automated publishing**:
-   - Marque **Enable publishing from workflow_dispatch events**
-   - (Opcional) Marque também **Enable publishing from push events**
-   - Tag pattern: `structured_logger-v{{version}}` (ou `*-v{{version}}`)
-   - (Opcional) Marque "Require GitHub Actions environment" (ex: pub-dev)
+### Prerequisites (pub.dev Automated publishing) — IMPORTANT
 
-3. Salve. Repita para os dois pacotes.
+Faça isso **uma única vez** para cada pacote (https://pub.dev):
 
-O workflow agora usa o reusable oficial:
-`uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1`
+1. Package admin → **Automated publishing**
+2. Enable:
+   - "Enable publishing from workflow_dispatch events"
+   - "Enable publishing from push events" (recommended)
+3. **Tag pattern** (choose one — both are supported by the workflows):
 
-Com `working-directory` para monorepo.
+   **Recommended (matches Melos monorepo tags):**
+   - `structured_logger-v{{version}}`
+   - For the interceptor: `structured_logger_dio_interceptor-v{{version}}`
 
-### How to release
-1. Go to **Actions** → **Publish to pub.dev**
-2. Click **Run workflow**
-3. Fill the inputs:
-   - `package`: `structured_logger`, `structured_logger_dio_interceptor`, or `all`
-   - `bump`: `patch`, `minor`, or `major`
-   - `prerelease`: check if this is a prerelease version
-4. The workflow will:
-   - Run CI checks
-   - Bump version(s) with Melos (using official tag pattern)
-   - Push tag(s)
-   - Publish using the official reusable workflow (dart-lang/setup-dart)
-   - Create GitHub Release(s)
+   **Alternative (plain):**
+   - `v{{version}}`
 
-**Tag pattern no pub.dev**: `structured_logger-v{{version}}` (or `*-v{{version}}`)
+   The automation creates **both** the prefixed tags and the plain `v...` tags and uses guards so the correct package publishes.
 
-**Order note**: When publishing both, the core is handled first in the matrix.
+4. Save. Repeat for both packages.
+
+If you see errors like:
+- "this token has 'refs/tags/structured_logger-vX.Y.Z-DEV.1' ... Expected tag 'vX.Y.Z-...'"
+- "publishing is configured to only be allowed from actions with specific ref pattern"
+
+→ Your Tag pattern in pub.dev does not match the tag we actually pushed for that version.
+  Fix by setting the pattern shown above and re-triggering (or push a new version tag).
+
+The publish jobs also contain guards that skip when the tag does not match the version in the package's `pubspec.yaml` (prevents cross-package attempts and the exact error above).
+
+### Manual releases (still available)
+
+1. Actions → **Publish to pub.dev** → Run workflow
+2. Choose package, bump, prerelease flag.
+3. Same CI + Melos + OIDC publish + GH release.
 
 You can still use `melos version` + `dart pub publish` locally.
 

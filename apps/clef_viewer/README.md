@@ -173,7 +173,7 @@ O `docker-compose.yml` usa **somente imagens públicas** — a VPS só faz `pull
 
 ### 1. Publicar imagens (uma vez)
 
-Faça push em `master` com mudanças em `apps/clef_viewer/` (ou rode o workflow **CLEF Viewer images** manualmente no GitHub Actions). Depois, em **GitHub → Packages**, abra cada pacote e defina visibilidade **Public**:
+Faça push em `master` (ou merge via PR aprovado de develop → master) com mudanças em `apps/clef_viewer/`. Imagens de DEV releases vão com tags `-DEV`. Rode o workflow **CLEF Viewer images** manualmente se necessário. Depois, em **GitHub → Packages**, abra cada pacote e defina visibilidade **Public**:
 
 - `ghcr.io/altamir/clef-viewer-server`
 - `ghcr.io/altamir/clef-viewer-webapp`

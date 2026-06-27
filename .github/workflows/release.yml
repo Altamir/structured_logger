@@ -1,0 +1,226 @@
+name: Release (DEV + Stable)
+
+# Triggers on PR approval (review submitted + state=approved).
+# - Approved PR targeting develop → DEV pre-release (vX.Y.Z-DEV.N, pre-release pub packages, DEV images/docs)
+# - Approved PR targeting master (usually from develop) → stable release (graduate or final vX.Y.Z, full publish, :latest)
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: release-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+  deployments: write
+
+jobs:
+  dev-release:
+    # Only when an approving review is submitted against a PR whose base is develop
+    if: github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout (PR head at approval)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Flutter (for Flutter packages in the monorepo)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get root dependencies
+        run: dart pub get
+
+      - name: Activate Melos
+        run: dart pub global activate melos --version 8.0.0
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      - name: Run CI checks (must pass before release)
+        run: melos run ci
+
+      - name: Clean working tree before versioning
+        run: |
+          git checkout -- .
+          git clean -fd
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Version packages as DEV pre-release
+        # --preid=DEV produces versions like 1.2.3-DEV.N (and tags structured_logger-v1.2.3-DEV.N)
+        run: melos version --yes --prerelease --preid=DEV
+
+      - name: Push version bumps and tags
+        run: git push --follow-tags
+
+      - name: Create additional plain v{{version}} tags (pub.dev v{{version}} compatibility)
+        # Allows pub.dev Automated publishing to be configured as either
+        # structured_logger-v{{version}} or simply v{{version}}
+        run: |
+          for TAG in $(git tag --points-at HEAD); do
+            if [[ "$TAG" == *-v* ]]; then
+              VER="${TAG##*-v}"
+              git tag "v${VER}" || true
+            fi
+          done
+          git push --tags
+
+      - name: Create GitHub Releases (as pre-release)
+        run: |
+          TAGS=$(git tag --points-at HEAD)
+          for TAG in $TAGS; do
+            echo "Creating pre-release for $TAG"
+            gh release create "$TAG" \
+              --generate-notes \
+              --prerelease \
+              --title "$TAG"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Capture versioned commit sha (for image/docs build at the released commit)
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Publish DEV images (no :latest)
+        uses: ./.github/workflows/clef-viewer-images.yml
+        with:
+          is_pr: 'false'
+          is_dev: 'true'
+          checkout_ref: ${{ steps.sha.outputs.sha }}
+        secrets: inherit
+
+      - name: Deploy DEV docs (to 'develop' branch on Cloudflare)
+        uses: ./.github/workflows/deploy-docs.yml
+        with:
+          is_pr: 'false'
+          is_dev: 'true'
+          checkout_ref: ${{ steps.sha.outputs.sha }}
+        secrets: inherit
+
+      # The pushed tags (both melos prefixed and any extra plain v tags) will also
+      # trigger the publish jobs in publish.yml for pub.dev pre-releases.
+
+  stable-release:
+    if: github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout (PR head at approval)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Flutter (for Flutter packages in the monorepo)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get root dependencies
+        run: dart pub get
+
+      - name: Activate Melos
+        run: dart pub global activate melos --version 8.0.0
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      - name: Run CI checks (must pass before release)
+        run: melos run ci
+
+      - name: Clean working tree before versioning
+        run: |
+          git checkout -- .
+          git clean -fd
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Graduate / create stable release version
+        # Graduates the previous -DEV pre-release to stable (or applies conventional bump to stable)
+        # For a pure graduate from the last dev version use --graduate.
+        # If you prefer to force a specific bump on the release PR, switch to --manual-version.
+        run: |
+          # Prefer graduate when coming from DEV pre-releases; fall back to conventional if needed.
+          if melos version --yes --graduate 2>/dev/null; then
+            echo "Graduated pre-release to stable"
+          else
+            echo "Graduate not applicable or no pre; falling back to conventional stable versioning"
+            melos version --yes
+          fi
+
+      - name: Push version bumps and tags
+        run: git push --follow-tags
+
+      - name: Create additional plain v{{version}} tags (pub.dev v{{version}} compatibility)
+        run: |
+          for TAG in $(git tag --points-at HEAD); do
+            if [[ "$TAG" == *-v* ]]; then
+              VER="${TAG##*-v}"
+              git tag "v${VER}" || true
+            fi
+          done
+          git push --tags
+
+      - name: Create GitHub Releases (stable)
+        run: |
+          TAGS=$(git tag --points-at HEAD)
+          for TAG in $TAGS; do
+            echo "Creating stable release for $TAG"
+            gh release create "$TAG" \
+              --generate-notes \
+              --title "$TAG"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Capture versioned commit sha
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Publish stable images (with :latest)
+        uses: ./.github/workflows/clef-viewer-images.yml
+        with:
+          is_pr: 'false'
+          is_dev: 'false'
+          checkout_ref: ${{ steps.sha.outputs.sha }}
+        secrets: inherit
+
+      - name: Deploy stable docs (to 'master')
+        uses: ./.github/workflows/deploy-docs.yml
+        with:
+          is_pr: 'false'
+          is_dev: 'false'
+          checkout_ref: ${{ steps.sha.outputs.sha }}
+        secrets: inherit
