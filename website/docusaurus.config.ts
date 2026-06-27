@@ -35,6 +35,8 @@ const config: Config = {
     },
   },
 
+  themes: ['@docusaurus/theme-mermaid'],
+
   presets: [
     [
       'classic',
@@ -63,6 +65,10 @@ const config: Config = {
       } satisfies Preset.Options,
     ],
   ],
+
+  markdown: {
+    mermaid: true,
+  },
 
   themeConfig: {
     image: 'img/social-card.svg',

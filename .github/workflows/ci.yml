@@ -50,15 +50,24 @@ jobs:
         # Defined in root pubspec melos: section as:
         # analyze && analyze:flutter && test:dart && test:flutter
 
-  # Only run image builds and docs deployment after tests pass
+  # Run image builds after tests pass (on both PR and push).
+  # On PR: tag with <run_number>-DEV-PR
+  # On main/master push: tag with <run_number>, :latest and :sha
+  # latest is ONLY updated from main/master.
   build-images:
     needs: test
-    if: needs.test.result == 'success' && (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    if: needs.test.result == 'success'
     uses: ./.github/workflows/clef-viewer-images.yml
+    with:
+      is_pr: ${{ github.event_name == 'pull_request' }}
+      pr_number: ${{ github.event.pull_request.number || '' }}
     secrets: inherit
 
   deploy-docs:
     needs: test
-    if: needs.test.result == 'success' && (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    if: needs.test.result == 'success'
     uses: ./.github/workflows/deploy-docs.yml
+    with:
+      is_pr: ${{ github.event_name == 'pull_request' }}
+      pr_number: ${{ github.event.pull_request.number || '' }}
     secrets: inherit

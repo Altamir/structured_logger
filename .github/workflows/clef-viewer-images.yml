@@ -2,6 +2,17 @@ name: CLEF Viewer images
 
 on:
   workflow_call:
+    inputs:
+      is_pr:
+        description: 'Whether this is a PR build'
+        required: false
+        default: 'false'
+        type: string
+      pr_number:
+        description: 'PR number if applicable'
+        required: false
+        default: ''
+        type: string
   workflow_dispatch:
 
 concurrency:
@@ -41,6 +52,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine image tags
+        id: tags
+        run: |
+          if [[ "${{ inputs.is_pr }}" == "true" ]]; then
+            echo "tags=${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.run_number }}-DEV-PR" >> $GITHUB_OUTPUT
+          else
+            echo "tags=${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.run_number }},${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest,${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -49,8 +69,6 @@ jobs:
           build-args: |
             CLEF_VIEWER_VERSION=${{ github.sha }}
           push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

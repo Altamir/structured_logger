@@ -32,3 +32,23 @@ release:
   label: Release
   permalink: /release
   description: Notas e anúncios de versão
+
+dart:
+  label: Dart
+  permalink: /dart
+  description: Desenvolvimento em Dart puro
+
+monorepo:
+  label: Monorepo
+  permalink: /monorepo
+  description: Monorepo e workspaces
+
+melos:
+  label: Melos
+  permalink: /melos
+  description: Ferramenta Melos para monorepos
+
+viewer:
+  label: Viewer
+  permalink: /viewer
+  description: Visualizadores de logs e ferramentas
