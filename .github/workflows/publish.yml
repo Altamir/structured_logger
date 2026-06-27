@@ -140,7 +140,6 @@ jobs:
       - name: Create additional plain v{{version}} tags (pub.dev v{{version}} compatibility)
         # Creates e.g. v1.2.3-DEV.1 alongside structured_logger-v1.2.3-DEV.1
         # This lets users configure either pattern in pub.dev Automated publishing.
-        # Guarded by the publish jobs below to avoid cross-package publish attempts.
         run: |
           for TAG in $(git tag --points-at HEAD); do
             if [[ "$TAG" == *-v* ]]; then
@@ -176,73 +175,24 @@ jobs:
   # We accept both:
   #   - structured_logger-vX.Y.Z... (Melos default)
   #   - vX.Y.Z... (plain, for users who configured pub.dev with v{{version}})
-  # A guard step ensures we only invoke the reusable when the tag name matches
-  # the version in THIS package's pubspec (prevents cross-package attempts and
-  # the "ref not allowed / expected tag ..." error on pub.dev).
+  #
+  # Note: When using plain `vX.Y.Z` tags, both jobs may evaluate on the push.
+  # The wrong one will fail at pub.dev (ref pattern mismatch), the correct one succeeds.
+  # For cleanest experience, configure pub.dev with the prefixed patterns:
+  #   structured_logger-v{{version}}
+  #   structured_logger_dio_interceptor-v{{version}}
   publish-structured-logger:
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/structured_logger-v') || startsWith(github.ref, 'refs/tags/v'))
     permissions:
       id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Compute package version
-        id: ver
-        run: |
-          VER=$(awk '/^version:/ {print $2; exit}' packages/structured_logger/pubspec.yaml | tr -d '\r')
-          echo "ver=$VER" >> $GITHUB_OUTPUT
-          echo "plain_tag=v$VER"
-
-      - name: Guard - tag must match this package version
-        id: guard
-        run: |
-          REF="${{ github.ref }}"
-          EXPECTED="refs/tags/v${{ steps.ver.outputs.ver }}"
-          if [[ "$REF" == refs/tags/structured_logger-v* || "$REF" == "$EXPECTED" ]]; then
-            echo "match=true" >> $GITHUB_OUTPUT
-            echo "Tag $REF matches structured_logger version ${{ steps.ver.outputs.ver }} → will publish"
-          else
-            echo "match=false" >> $GITHUB_OUTPUT
-            echo "Skipping publish-structured-logger (tag $REF does not match version ${{ steps.ver.outputs.ver }})"
-          fi
-
-      - name: Publish structured_logger (only on matching tag)
-        if: steps.guard.outputs.match == 'true'
-        uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
-        with:
-          working-directory: packages/structured_logger
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      working-directory: packages/structured_logger
 
   publish-dio-interceptor:
     if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/structured_logger_dio_interceptor-v') || startsWith(github.ref, 'refs/tags/v'))
     permissions:
       id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Compute package version
-        id: ver
-        run: |
-          VER=$(awk '/^version:/ {print $2; exit}' packages/structured_logger_dio_interceptor/pubspec.yaml | tr -d '\r')
-          echo "ver=$VER" >> $GITHUB_OUTPUT
-          echo "plain_tag=v$VER"
-
-      - name: Guard - tag must match this package version
-        id: guard
-        run: |
-          REF="${{ github.ref }}"
-          EXPECTED="refs/tags/v${{ steps.ver.outputs.ver }}"
-          if [[ "$REF" == refs/tags/structured_logger_dio_interceptor-v* || "$REF" == "$EXPECTED" ]]; then
-            echo "match=true" >> $GITHUB_OUTPUT
-            echo "Tag $REF matches dio_interceptor version ${{ steps.ver.outputs.ver }} → will publish"
-          else
-            echo "match=false" >> $GITHUB_OUTPUT
-            echo "Skipping publish-dio-interceptor (tag $REF does not match version ${{ steps.ver.outputs.ver }})"
-          fi
-
-      - name: Publish dio-interceptor (only on matching tag)
-        if: steps.guard.outputs.match == 'true'
-        uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
-        with:
-          working-directory: packages/structured_logger_dio_interceptor
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      working-directory: packages/structured_logger_dio_interceptor
