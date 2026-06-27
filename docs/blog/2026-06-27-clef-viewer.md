@@ -140,7 +140,7 @@ A aba **Viewer** é onde você passa a maior parte do tempo:
 
 Aqui está a interface **Viewer** em ação (screenshot real):
 
-![interface **Viewer**](image.png)
+![interface **Viewer**](clef-viewer-viewer.png)
 
 **Elementos visíveis no print do Viewer:**
 
@@ -199,7 +199,7 @@ A chave de API é guardada **apenas no sessionStorage** do navegador (nunca na U
 
 Aqui está a interface **Admin** em produção (screenshot real):
 
-![interface **Admin**](image-1.png)
+![interface **Admin**](clef-viewer-admin.png)
 
 **Elementos da tela Admin:**
 

@@ -140,7 +140,7 @@ The **Viewer** tab is where you will spend most of your time:
 
 Here is the **Viewer** interface in action (real screenshot):
 
-![interface **Viewer**](image.png)
+![interface **Viewer**](clef-viewer-viewer.png)
 
 **Elements visible in the Viewer screenshot:**
 
@@ -199,7 +199,7 @@ The API key is stored **only in the browser's sessionStorage** (never in the URL
 
 Here is the **Admin** interface in production (real screenshot):
 
-![interface **Admin**](image-1.png)
+![interface **Admin**](clef-viewer-admin.png)
 
 **Elements of the Admin screen:**
 
