@@ -1,3 +1,7 @@
+## 1.0.1-dev.0
+
+ - **FIX**: adiciona LICENSE e README.md nos pacotes. ([8c52242c](https://github.com/Altamir/structured_logger/commit/8c52242cbe631a7d2b38f2d790015ff8ae391192))
+
 ## 1.0.0
 
 * **Dart-pure package**: removed all Flutter SDK and `flutter_*` dependencies. Core now publishes as pure Dart (CLI, server, Docker compatible without Flutter SDK).
