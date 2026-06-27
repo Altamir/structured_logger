@@ -1,30 +1,25 @@
 name: Publish to pub.dev
 
-# This workflow automates publishing packages using Melos.
-# It supports:
-# - Version bumping (patch/minor/major)
-# - Prereleases
-# - Automatic GitHub Release creation
-# - OIDC Trusted Publishing (no long-lived secrets needed for pub.dev)
+# Seguindo o setup oficial do pub.dev para OIDC Trusted Publishing.
+# Usamos o reusable workflow recomendado.
+#
+# No pub.dev Admin (por pacote):
+# - Tag pattern: structured_logger-v{{version}} (or *-v{{version}})
+# - Enable workflow_dispatch events (e push events se quiser)
+#
+# O workflow suporta dispatch manual (com escolhas de pacote/bump) + push de tags.
 
-# === OIDC Setup (recommended - no secret needed) ===
-# 1. Acesse cada pacote no pub.dev:
-#    - https://pub.dev/packages/structured_logger
-#    - https://pub.dev/packages/structured_logger_dio_interceptor
+# === Seguindo o setup oficial do pub.dev ===
+# No Admin de cada pacote:
+# - Tag pattern: structured_logger-v{{version}}   (or *-v{{version}})
+# - Enable "workflow_dispatch events" (and optionally push events)
+# - (optional) Require environment
 #
-# 2. Clique na aba "Admin" (você precisa ser owner)
+# Workflow uses the official reusable:
+# uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
 #
-# 3. Role até a seção "Automated publishing" (ou "Publicação automatizada")
-#
-# 4. Clique em "Add GitHub" e preencha:
-#    - GitHub repository: Altamir/structured_logger
-#    - Workflow filename: publish.yml
-#    - Environment: (deixe vazio por enquanto ou use "pub-dev" para mais segurança)
-#
-# 5. Repita para os dois pacotes.
-#
-# 6. Após configurar, remova o secret PUB_DEV_CREDENTIALS (se existir).
-#    O workflow já tem 'id-token: write' e usa OIDC automaticamente.
+# OIDC via id-token: write (no long-lived secret needed).
+# Custom dispatch kept for monorepo (select package + bump via UI).
 
 on:
   workflow_dispatch:
@@ -53,6 +48,13 @@ on:
         default: false
         type: boolean
 
+  # Also support the official tag-triggered flow
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - 'structured_logger-v[0-9]+.[0-9]+.[0-9]+*'
+      - '*-v[0-9]+.[0-9]+.[0-9]+*'
+
 permissions:
   contents: write
   id-token: write
@@ -72,14 +74,29 @@ jobs:
         with:
           sdk: stable
 
-      - name: Install Melos
-        run: dart pub global activate melos
+      - name: Setup Flutter (needed for Flutter packages in workspace like apps/clef_viewer/ui)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get root dependencies
+        run: dart pub get
+
+      - name: Activate Melos
+        run: dart pub global activate melos --version 8.0.0
 
       - name: Bootstrap workspace
         run: melos bootstrap
 
       - name: Run CI checks
         run: melos run ci
+
+      - name: Clean working tree before versioning
+        # Revert any lockfile or artifact changes from bootstrap/CI so melos version sees a clean tree
+        run: |
+          git checkout -- .
+          git clean -fd
 
       - name: Configure Git
         run: |
@@ -88,39 +105,49 @@ jobs:
 
       - name: Version packages
         run: |
-          PRERELEASE_FLAG=""
           if [ "${{ inputs.prerelease }}" = "true" ]; then
-            PRERELEASE_FLAG="--prerelease"
-          fi
-
-          if [ "${{ inputs.package }}" = "all" ]; then
-            melos version \
-              --yes \
-              --release-as=${{ inputs.bump }} \
-              $PRERELEASE_FLAG
+            # For prereleases we use conventional commits path + --prerelease
+            # (manual-version cannot be combined with --prerelease)
+            if [ "${{ inputs.package }}" = "all" ]; then
+              melos version --yes --prerelease
+            else
+              melos version --yes --prerelease --scope=${{ inputs.package }}
+            fi
           else
-            melos version \
-              --yes \
-              --scope=${{ inputs.package }} \
-              --release-as=${{ inputs.bump }} \
-              $PRERELEASE_FLAG
+            if [ "${{ inputs.package }}" = "all" ]; then
+              melos version \
+                --yes \
+                --manual-version "structured_logger:${{ inputs.bump }}" \
+                --manual-version "structured_logger_dio_interceptor:${{ inputs.bump }}"
+            else
+              melos version \
+                --yes \
+                --manual-version "${{ inputs.package }}:${{ inputs.bump }}"
+            fi
           fi
 
       - name: Push version bumps and tags
         run: |
           git push --follow-tags
 
-      - name: Publish to pub.dev (using OIDC Trusted Publishing)
-        # No credentials secret needed. Configure OIDC trust on pub.dev for each package.
-        # See https://dart.dev/tools/pub/automated-publishing#publishing-from-github-actions
-        run: |
-          if [ "${{ inputs.package }}" = "all" ]; then
-            melos publish --yes
-          else
-            melos publish --yes --scope=${{ inputs.package }}
-          fi
-        env:
-          PUB_HOSTED_URL: https://pub.dev
+  # Official publish using reusable (per package for monorepo)
+  publish-structured-logger:
+    needs: publish
+    if: inputs.package == 'structured_logger' || inputs.package == 'all'
+    permissions:
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      working-directory: packages/structured_logger
+
+  publish-dio-interceptor:
+    needs: publish
+    if: inputs.package == 'structured_logger_dio_interceptor' || inputs.package == 'all'
+    permissions:
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      working-directory: packages/structured_logger_dio_interceptor
 
       - name: Create GitHub Releases
         if: success()

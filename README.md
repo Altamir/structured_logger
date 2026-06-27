@@ -112,25 +112,23 @@ Releases are fully automated via GitHub Actions using Melos.
 - Automatic **GitHub Release** creation (with generated notes)
 - Uses **OIDC Trusted Publishing** (no long-lived `credentials.json` secret required)
 
-### Prerequisites (OIDC Trusted Publishing - recomendado)
+### Prerequisites (seguindo o oficial do pub.dev)
 Faça isso **uma única vez** para cada pacote:
 
-1. Acesse o pacote no pub.dev:
-   - [structured_logger](https://pub.dev/packages/structured_logger)
-   - [structured_logger_dio_interceptor](https://pub.dev/packages/structured_logger_dio_interceptor)
+1. Acesse o Admin do pacote no pub.dev.
 
-2. Clique na aba **Admin** (você precisa ser dono do pacote)
+2. Na seção **Automated publishing**:
+   - Marque **Enable publishing from workflow_dispatch events**
+   - (Opcional) Marque também **Enable publishing from push events**
+   - Tag pattern: `structured_logger-v{{version}}` (ou `*-v{{version}}`)
+   - (Opcional) Marque "Require GitHub Actions environment" (ex: pub-dev)
 
-3. Role até a seção **Automated publishing** (ou "Publicação automatizada")
+3. Salve. Repita para os dois pacotes.
 
-4. Clique em **Add GitHub** e preencha:
-   - **GitHub repository**: `Altamir/structured_logger`
-   - **Workflow filename**: `publish.yml`
-   - **Environment**: (deixe em branco ou crie um chamado `pub-dev` para maior segurança)
+O workflow agora usa o reusable oficial:
+`uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1`
 
-5. Salve. Repita para os dois pacotes.
-
-Pronto. Agora **não é necessário** criar o secret `PUB_DEV_CREDENTIALS`. O workflow usa OIDC automaticamente.
+Com `working-directory` para monorepo.
 
 ### How to release
 1. Go to **Actions** → **Publish to pub.dev**
@@ -141,13 +139,14 @@ Pronto. Agora **não é necessário** criar o secret `PUB_DEV_CREDENTIALS`. O wo
    - `prerelease`: check if this is a prerelease version
 4. The workflow will:
    - Run CI checks
-   - Bump version(s) with Melos
-   - Update CHANGELOG(s)
-   - Push version commit + tag(s)
-   - Publish to pub.dev
-   - **Automatically create GitHub Release(s)** (marked as prerelease if selected)
+   - Bump version(s) with Melos (using official tag pattern)
+   - Push tag(s)
+   - Publish using the official reusable workflow (dart-lang/setup-dart)
+   - Create GitHub Release(s)
 
-**Order note**: When publishing both packages, the core (`structured_logger`) is published first.
+**Tag pattern no pub.dev**: `structured_logger-v{{version}}` (or `*-v{{version}}`)
 
-You can still use `melos version` + `dart pub publish` locally for manual control.
+**Order note**: When publishing both, the core is handled first in the matrix.
+
+You can still use `melos version` + `dart pub publish` locally.
 
