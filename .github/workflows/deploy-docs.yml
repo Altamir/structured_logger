@@ -2,6 +2,17 @@ name: Deploy documentation
 
 on:
   workflow_call:
+    inputs:
+      is_pr:
+        description: 'Whether this is a PR preview deployment'
+        required: false
+        default: 'false'
+        type: string
+      pr_number:
+        description: 'PR number (if applicable)'
+        required: false
+        default: ''
+        type: string
   workflow_dispatch:
 
 concurrency:
@@ -36,7 +47,19 @@ jobs:
         working-directory: website
         run: npm run build
 
+      - name: Determine deployment target
+        id: deploy
+        run: |
+          if [[ "${{ inputs.is_pr }}" == "true" ]]; then
+            echo "project=structured-logger" >> $GITHUB_OUTPUT
+            echo "branch=pr-${{ inputs.pr_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "project=structured-logger" >> $GITHUB_OUTPUT
+            echo "branch=master" >> $GITHUB_OUTPUT
+          fi
+
       - name: Ensure Cloudflare Pages project exists
+        if: inputs.is_pr != 'true'
         uses: cloudflare/wrangler-action@v3
         continue-on-error: true
         with:
@@ -49,4 +72,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy website/build --project-name=structured-logger --branch=master --commit-dirty=true
+          command: pages deploy website/build --project-name=${{ steps.deploy.outputs.project }} --branch=${{ steps.deploy.outputs.branch }} --commit-dirty=true
