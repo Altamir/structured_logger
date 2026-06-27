@@ -24,6 +24,8 @@ jobs:
     if: github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'develop'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      release_sha: ${{ steps.sha.outputs.sha }}
 
     steps:
       - name: Checkout (PR head at approval)
@@ -102,29 +104,33 @@ jobs:
         id: sha
         run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Publish DEV images (no :latest)
-        uses: ./.github/workflows/clef-viewer-images.yml
-        with:
-          is_pr: 'false'
-          is_dev: 'true'
-          checkout_ref: ${{ steps.sha.outputs.sha }}
-        secrets: inherit
+  # Separate jobs for calling reusable workflows (uses: must be at job level, + secrets: inherit at same level)
+  dev-images:
+    needs: dev-release
+    if: needs.dev-release.result == 'success'
+    uses: ./.github/workflows/clef-viewer-images.yml
+    with:
+      is_pr: 'false'
+      is_dev: 'true'
+      checkout_ref: ${{ needs.dev-release.outputs.release_sha }}
+    secrets: inherit
 
-      - name: Deploy DEV docs (to 'develop' branch on Cloudflare)
-        uses: ./.github/workflows/deploy-docs.yml
-        with:
-          is_pr: 'false'
-          is_dev: 'true'
-          checkout_ref: ${{ steps.sha.outputs.sha }}
-        secrets: inherit
-
-      # The pushed tags (both melos prefixed and any extra plain v tags) will also
-      # trigger the publish jobs in publish.yml for pub.dev pre-releases.
+  dev-docs:
+    needs: dev-release
+    if: needs.dev-release.result == 'success'
+    uses: ./.github/workflows/deploy-docs.yml
+    with:
+      is_pr: 'false'
+      is_dev: 'true'
+      checkout_ref: ${{ needs.dev-release.outputs.release_sha }}
+    secrets: inherit
 
   stable-release:
     if: github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'master'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      release_sha: ${{ steps.sha.outputs.sha }}
 
     steps:
       - name: Checkout (PR head at approval)
@@ -209,18 +215,22 @@ jobs:
         id: sha
         run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Publish stable images (with :latest)
-        uses: ./.github/workflows/clef-viewer-images.yml
-        with:
-          is_pr: 'false'
-          is_dev: 'false'
-          checkout_ref: ${{ steps.sha.outputs.sha }}
-        secrets: inherit
+  stable-images:
+    needs: stable-release
+    if: needs.stable-release.result == 'success'
+    uses: ./.github/workflows/clef-viewer-images.yml
+    with:
+      is_pr: 'false'
+      is_dev: 'false'
+      checkout_ref: ${{ needs.stable-release.outputs.release_sha }}
+    secrets: inherit
 
-      - name: Deploy stable docs (to 'master')
-        uses: ./.github/workflows/deploy-docs.yml
-        with:
-          is_pr: 'false'
-          is_dev: 'false'
-          checkout_ref: ${{ steps.sha.outputs.sha }}
-        secrets: inherit
+  stable-docs:
+    needs: stable-release
+    if: needs.stable-release.result == 'success'
+    uses: ./.github/workflows/deploy-docs.yml
+    with:
+      is_pr: 'false'
+      is_dev: 'false'
+      checkout_ref: ${{ needs.stable-release.outputs.release_sha }}
+    secrets: inherit
