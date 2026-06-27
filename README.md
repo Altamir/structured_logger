@@ -102,3 +102,52 @@ This is a simple example, and you can customize Sinks and log data as needed.
 - `structured_logger_dio_interceptor` (Dio HTTP logging via StructureLogger + your sinks)
 - See `packages/` and docs for interceptor usage and migration from legacy `dio_interceptor_seq`.
 
+## Releasing new versions (pub.dev)
+
+Releases are fully automated via GitHub Actions using Melos.
+
+### Workflow Features
+- Automatic version bumping (`melos version`)
+- Support for **prereleases**
+- Automatic **GitHub Release** creation (with generated notes)
+- Uses **OIDC Trusted Publishing** (no long-lived `credentials.json` secret required)
+
+### Prerequisites (OIDC Trusted Publishing - recomendado)
+Faça isso **uma única vez** para cada pacote:
+
+1. Acesse o pacote no pub.dev:
+   - [structured_logger](https://pub.dev/packages/structured_logger)
+   - [structured_logger_dio_interceptor](https://pub.dev/packages/structured_logger_dio_interceptor)
+
+2. Clique na aba **Admin** (você precisa ser dono do pacote)
+
+3. Role até a seção **Automated publishing** (ou "Publicação automatizada")
+
+4. Clique em **Add GitHub** e preencha:
+   - **GitHub repository**: `Altamir/structured_logger`
+   - **Workflow filename**: `publish.yml`
+   - **Environment**: (deixe em branco ou crie um chamado `pub-dev` para maior segurança)
+
+5. Salve. Repita para os dois pacotes.
+
+Pronto. Agora **não é necessário** criar o secret `PUB_DEV_CREDENTIALS`. O workflow usa OIDC automaticamente.
+
+### How to release
+1. Go to **Actions** → **Publish to pub.dev**
+2. Click **Run workflow**
+3. Fill the inputs:
+   - `package`: `structured_logger`, `structured_logger_dio_interceptor`, or `all`
+   - `bump`: `patch`, `minor`, or `major`
+   - `prerelease`: check if this is a prerelease version
+4. The workflow will:
+   - Run CI checks
+   - Bump version(s) with Melos
+   - Update CHANGELOG(s)
+   - Push version commit + tag(s)
+   - Publish to pub.dev
+   - **Automatically create GitHub Release(s)** (marked as prerelease if selected)
+
+**Order note**: When publishing both packages, the core (`structured_logger`) is published first.
+
+You can still use `melos version` + `dart pub publish` locally for manual control.
+

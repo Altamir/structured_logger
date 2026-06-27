@@ -1,0 +1,142 @@
+name: Publish to pub.dev
+
+# This workflow automates publishing packages using Melos.
+# It supports:
+# - Version bumping (patch/minor/major)
+# - Prereleases
+# - Automatic GitHub Release creation
+# - OIDC Trusted Publishing (no long-lived secrets needed for pub.dev)
+
+# === OIDC Setup (recommended - no secret needed) ===
+# 1. Acesse cada pacote no pub.dev:
+#    - https://pub.dev/packages/structured_logger
+#    - https://pub.dev/packages/structured_logger_dio_interceptor
+#
+# 2. Clique na aba "Admin" (você precisa ser owner)
+#
+# 3. Role até a seção "Automated publishing" (ou "Publicação automatizada")
+#
+# 4. Clique em "Add GitHub" e preencha:
+#    - GitHub repository: Altamir/structured_logger
+#    - Workflow filename: publish.yml
+#    - Environment: (deixe vazio por enquanto ou use "pub-dev" para mais segurança)
+#
+# 5. Repita para os dois pacotes.
+#
+# 6. Após configurar, remova o secret PUB_DEV_CREDENTIALS (se existir).
+#    O workflow já tem 'id-token: write' e usa OIDC automaticamente.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Which package(s) to publish'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - structured_logger
+          - structured_logger_dio_interceptor
+          - all
+      bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install Melos
+        run: dart pub global activate melos
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      - name: Run CI checks
+        run: melos run ci
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Version packages
+        run: |
+          PRERELEASE_FLAG=""
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          if [ "${{ inputs.package }}" = "all" ]; then
+            melos version \
+              --yes \
+              --release-as=${{ inputs.bump }} \
+              $PRERELEASE_FLAG
+          else
+            melos version \
+              --yes \
+              --scope=${{ inputs.package }} \
+              --release-as=${{ inputs.bump }} \
+              $PRERELEASE_FLAG
+          fi
+
+      - name: Push version bumps and tags
+        run: |
+          git push --follow-tags
+
+      - name: Publish to pub.dev (using OIDC Trusted Publishing)
+        # No credentials secret needed. Configure OIDC trust on pub.dev for each package.
+        # See https://dart.dev/tools/pub/automated-publishing#publishing-from-github-actions
+        run: |
+          if [ "${{ inputs.package }}" = "all" ]; then
+            melos publish --yes
+          else
+            melos publish --yes --scope=${{ inputs.package }}
+          fi
+        env:
+          PUB_HOSTED_URL: https://pub.dev
+
+      - name: Create GitHub Releases
+        if: success()
+        run: |
+          TAGS=$(git tag --points-at HEAD)
+          PRERELEASE_FLAG=""
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          for TAG in $TAGS; do
+            echo "Creating release for $TAG"
+            gh release create "$TAG" \
+              --generate-notes \
+              $PRERELEASE_FLAG \
+              --title "$TAG"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
