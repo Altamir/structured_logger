@@ -123,10 +123,19 @@ The repository uses a **develop / master** flow:
 4. On open → only tests + preview run.
 5. **Merge** → `release.yml` runs:
    - `melos version --yes --graduate` (or conventional stable) with `--no-git-tag-version`
-   - Pushes final `vX.Y.Z` tags only
+   - Pushes final `vX.Y.Z` tags (triggers `publish.yml` on pub.dev)
+   - Opens a **follow-up PR** `chore/release-*` with pubspec bumps (because `master` blocks direct push)
+6. **Merge the version-bump PR** (one click, same as any other PR) to sync `master` pubspecs.
    - Stable GitHub release per `v*` tag
-   - Publishes final packages
    - Updates images with `:latest` + docs to CF `master`
+
+### Protected `master` (no bypass required)
+
+`master` does not accept direct push from Actions. The workflow does **not** need a bypass list or `RELEASE_PAT`:
+
+1. After your feature PR merges, `stable-release` graduates versions, pushes **tags**, and opens `chore/release-<run_id>` → `master`.
+2. You merge that small PR (pubspec/CHANGELOG only).
+3. pub.dev publish runs from **tag push**, without waiting for step 2.
 
 ### Prerequisites (pub.dev Automated publishing) — IMPORTANT
 

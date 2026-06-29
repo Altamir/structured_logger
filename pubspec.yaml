@@ -31,6 +31,7 @@ melos:
     version:
       linkToCommits: true
       workspaceChangelog: false
+      fetchTags: false
       message: |
         chore(release): publish {new_package_versions}
 
