@@ -60,6 +60,12 @@ class _FailingAdapterWithStatus implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+/// Standard 3-part JWT for obfuscation tests.
+const _sampleJwt =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+
+const _obfuscatedJwt = 'eyJhbG...***';
+
 void main() {
   group('DioLoggingInterceptor', () {
     late CaptureSink sink;
@@ -154,7 +160,7 @@ void main() {
       final event = sink.events.first;
       expect(
         event.mt,
-        'REQUEST: {method} {path} {correlationalSeqID} {queryParams} {headers}',
+        'REQUEST: {method} {path} {correlationalSeqID} {headers}',
       );
       expect(event.mt, isNot(contains('{@')));
       expect(event.mt, isNot(contains('{data}')));
@@ -167,7 +173,69 @@ void main() {
       expect((data['correlationalSeqID'] as String).isNotEmpty, true);
       expect(options.headers['X-Request-Seq-Id'], data['correlationalSeqID']);
       expect(options.headers['X-Request-Start-Time'], isA<int>());
-      expect(data['queryParams'], {});
+      expect(data.containsKey('queryParams'), isFalse);
+    });
+
+    test('flattens query parameters as queryParam.* properties', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'GET');
+      options.queryParameters = {'page': 1, 'userId': '42'};
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final data = sink.events.single.data!;
+      expect(data['queryParam.page'], 1);
+      expect(data['queryParam.userId'], '42');
+      expect(data.containsKey('queryParams'), isFalse);
+    });
+
+    test('sanitizes invalid query param keys for property filter', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'GET');
+      options.queryParameters = {'2fa': 'enabled', 'a b': 'x'};
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final data = sink.events.single.data!;
+      expect(data['queryParam.p2fa'], 'enabled');
+      expect(data['queryParam.a_b'], 'x');
+    });
+
+    test('obfuscates JWT in Authorization header', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'GET');
+      options.headers['Authorization'] = 'Bearer $_sampleJwt';
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final headers = sink.events.single.data!['headers'] as Map;
+      expect(headers['Authorization'], 'Bearer $_obfuscatedJwt');
+      expect(options.headers['Authorization'], 'Bearer $_sampleJwt');
+    });
+
+    test('obfuscates bare JWT strings in request body', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'POST');
+      options.data = {'token': _sampleJwt, 'label': 'ok'};
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final data = sink.events.single.data!['data'] as Map;
+      expect(data['token'], _obfuscatedJwt);
+      expect(data['label'], 'ok');
+    });
+
+    test('leaves non-JWT strings unchanged', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'GET');
+      options.headers['X-Custom'] = 'plain-value';
+      options.queryParameters = {'q': 'search-term'};
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final eventData = sink.events.single.data!;
+      expect((eventData['headers'] as Map)['X-Custom'], 'plain-value');
+      expect(eventData['queryParam.q'], 'search-term');
     });
 
     test('REQUEST template interpolates with data keys', () async {

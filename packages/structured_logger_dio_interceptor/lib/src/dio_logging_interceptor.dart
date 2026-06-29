@@ -5,11 +5,35 @@ import 'package:structured_logger/structured_logger.dart';
 import 'package:uuid/uuid.dart';
 
 const String _templateRequest =
-    'REQUEST: {method} {path} {correlationalSeqID} {queryParams} {headers}';
+    'REQUEST: {method} {path} {correlationalSeqID} {headers}';
+
+final RegExp _jwtTokenPattern = RegExp(
+  r'^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$',
+);
+
+final RegExp _bearerPrefixPattern = RegExp(
+  r'^(Bearer\s+)(.+)$',
+  caseSensitive: false,
+);
 const String _templateResponse =
     'RESPONSE: {statusCode} {path} {correlationalSeqID} {headers} {elapsedTime}';
 const String _templateError =
     'ERROR: {statusCode} {path} {correlationalSeqID} {message} {headers} {elapsedTime}';
+
+String _obfuscateJwtToken(String token) {
+  if (!_jwtTokenPattern.hasMatch(token)) return token;
+  if (token.length <= 10) return '***';
+  return '${token.substring(0, 6)}...***';
+}
+
+String _obfuscateJwtInString(String value) {
+  final trimmed = value.trim();
+  final bearer = _bearerPrefixPattern.firstMatch(trimmed);
+  if (bearer != null) {
+    return '${bearer.group(1)}${_obfuscateJwtToken(bearer.group(2)!.trim())}';
+  }
+  return _obfuscateJwtToken(trimmed);
+}
 
 /// Sanitize values for safe inclusion in LogModel.data (prevents
 /// JsonUnsupportedObjectError downstream in sinks like SinkSeq when
@@ -17,13 +41,15 @@ const String _templateError =
 /// Hardening for release safety / contract preservation; design intent
 /// (log full request/response semantics) preserved for serializable cases.
 Object? _sanitize(Object? v) {
-  if (v == null || v is String || v is num || v is bool) return v;
+  if (v == null) return null;
+  if (v is String) return _obfuscateJwtInString(v);
+  if (v is num || v is bool) return v;
   if (v is Map) {
     return v.map((k, vv) => MapEntry(k.toString(), _sanitize(vv)));
   }
   if (v is List) return v.map(_sanitize).toList();
   if (v is Iterable) return v.map(_sanitize).toList();
-  return v.toString();
+  return _obfuscateJwtInString(v.toString());
 }
 
 Map<String, dynamic> _queryParamsOrEmpty(Map<String, dynamic>? params) {
@@ -32,6 +58,25 @@ Map<String, dynamic> _queryParamsOrEmpty(Map<String, dynamic>? params) {
     return Map<String, dynamic>.from(sanitized);
   }
   return {};
+}
+
+String _toQueryParamPropertyKey(String rawKey) {
+  var key = rawKey.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
+  if (key.isEmpty) return 'unknown';
+  if (!RegExp(r'^[A-Za-z_]').hasMatch(key)) {
+    key = 'p$key';
+  }
+  return key;
+}
+
+Map<String, dynamic> _queryParamProperties(Map<String, dynamic>? params) {
+  final sanitized = _queryParamsOrEmpty(params);
+  final result = <String, dynamic>{};
+  for (final entry in sanitized.entries) {
+    final key = _toQueryParamPropertyKey(entry.key);
+    result['queryParam.$key'] = entry.value;
+  }
+  return result;
 }
 
 String _stringOrEmpty(Object? value) => value?.toString() ?? '';
@@ -101,7 +146,7 @@ class DioLoggingInterceptor extends Interceptor {
           'path': options.path,
           'correlationalSeqID': id,
           'data': _sanitize(options.data),
-          'queryParams': _queryParamsOrEmpty(options.queryParameters),
+          ..._queryParamProperties(options.queryParameters),
           'headers': _sanitize(options.headers),
         },
         options.headers,

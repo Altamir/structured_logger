@@ -50,9 +50,13 @@ DioLoggingInterceptor(
 
 Message templates use `{property}` placeholders aligned with `StructureLogger` (not `{@property}`).
 
-- REQUEST: `REQUEST: {method} {path} {correlationalSeqID} {queryParams} {headers}`
+- REQUEST: `REQUEST: {method} {path} {correlationalSeqID} {headers}`
 - RESPONSE: `RESPONSE: {statusCode} {path} {correlationalSeqID} {headers} {elapsedTime}`
 - ERROR: `ERROR: {statusCode} {path} {correlationalSeqID} {message} {headers} {elapsedTime}`
+
+Each request query parameter is emitted as a top-level `queryParam.<name>` property (e.g. `queryParam.page=1`), enabling filters in CLEF Viewer.
+
+JWT tokens in headers, query params, and bodies are obfuscated in logs (`eyJhbG...***`); original Dio request headers are not modified.
 
 Request/response bodies are **not** part of `@mt`; they are emitted as structured properties (`data`, `errorData`) for search and inspection in the viewer.
 

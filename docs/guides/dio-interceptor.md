@@ -50,9 +50,13 @@ DioLoggingInterceptor(
 
 Os message templates usam placeholders `{propriedade}` alinhados ao `StructureLogger` (não `{@propriedade}`).
 
-- REQUEST: `REQUEST: {method} {path} {correlationalSeqID} {queryParams} {headers}`
+- REQUEST: `REQUEST: {method} {path} {correlationalSeqID} {headers}`
 - RESPONSE: `RESPONSE: {statusCode} {path} {correlationalSeqID} {headers} {elapsedTime}`
 - ERROR: `ERROR: {statusCode} {path} {correlationalSeqID} {message} {headers} {elapsedTime}`
+
+Cada query parameter do request é emitido como property de nível superior `queryParam.<nome>` (ex.: `queryParam.page=1`), permitindo filtros no CLEF Viewer.
+
+Tokens JWT em headers, query params e body são ofuscados nos logs (`eyJhbG...***`); os headers originais da requisição Dio não são alterados.
 
 Corpos de request/response **não** fazem parte do `@mt`; são emitidos como properties estruturadas (`data`, `errorData`) para busca e inspeção no viewer.
 
