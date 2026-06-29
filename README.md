@@ -128,6 +128,20 @@ The repository uses a **develop / master** flow:
    - Publishes final packages
    - Updates images with `:latest` + docs to CF `master`
 
+### Prerequisites (protected `master` + `RELEASE_PAT`) — IMPORTANT
+
+`master` blocks direct push. The `stable-release` job pushes version bumps after `melos version`; that requires a **personal access token**, not `GITHUB_TOKEN`.
+
+GitHub bypass rules list **users, teams, or apps** — **`github-actions[bot]` is not listed**. Add **your GitHub user** (repo admin) to the bypass list, then:
+
+1. **Branch protection / ruleset for `master`** → *Bypass list* → add your user (e.g. `Altamir`).
+2. Create a **fine-grained PAT** (or classic) for that user with:
+   - Repository access: `structured_logger`
+   - Permissions: **Contents** (read/write), **Metadata** (read)
+3. Repo **Settings → Secrets and variables → Actions** → New secret: `RELEASE_PAT` = the PAT.
+
+`develop` releases keep using `GITHUB_TOKEN` (direct push). Only `stable-release` on `master` uses `RELEASE_PAT`.
+
 ### Prerequisites (pub.dev Automated publishing) — IMPORTANT
 
 Faça isso **uma única vez** para cada pacote (https://pub.dev):

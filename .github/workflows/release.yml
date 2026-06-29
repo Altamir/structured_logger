@@ -2,7 +2,10 @@ name: Release (DEV + Stable)
 
 # Triggers when a PR is merged (closed + merged).
 # - Merged PR into develop → DEV pre-release (vX.Y.Z-dev.N, pre-release pub packages, DEV images/docs)
-# - Merged PR into master (usually from develop) → stable release (graduate or final vX.Y.Z, full publish, :latest)
+# - Merged PR into master → stable release (graduate or final vX.Y.Z, full publish, :latest)
+#
+# stable-release requires RELEASE_PAT: a PAT from a user listed in master branch bypass rules
+# (GitHub Actions / github-actions[bot] is not available in bypass actor lists).
 
 on:
   pull_request:
@@ -33,6 +36,9 @@ jobs:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach to base branch for melos
+        run: git checkout -B ${{ github.event.pull_request.base.ref }}
 
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
@@ -123,12 +129,25 @@ jobs:
       release_sha: ${{ steps.sha.outputs.sha }}
 
     steps:
+      - name: Ensure RELEASE_PAT is configured
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+        run: |
+          if [ -z "$RELEASE_PAT" ]; then
+            echo "::error::RELEASE_PAT is required for stable-release (master is protected)."
+            echo "Create a PAT for your GitHub user (listed in master bypass rules) and add it as repository secret RELEASE_PAT. See README."
+            exit 1
+          fi
+
       - name: Checkout (merge commit)
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Attach to base branch for melos
+        run: git checkout -B ${{ github.event.pull_request.base.ref }}
 
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
@@ -175,9 +194,11 @@ jobs:
       - name: Create v{{version}} tags
         run: bash scripts/create_v_tags.sh
 
-      - name: Push version bumps and tags
+      - name: Push version bumps and tags to master
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
-          git push origin "HEAD:${{ github.event.pull_request.base.ref }}" --follow-tags
+          git push origin "HEAD:master" --follow-tags
           git push --tags
 
       - name: Create GitHub Releases (stable)
@@ -190,7 +211,7 @@ jobs:
               --title "$TAG"
           done
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
 
       - name: Capture versioned commit sha
         id: sha
