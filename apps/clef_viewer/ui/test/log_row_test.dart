@@ -104,4 +104,59 @@ void main() {
 
     expect(filtered, 'UserId=42');
   });
+
+  testWidgets('structured property renders JSON block when expanded', (tester) async {
+    const structuredEntry = LogEntry(
+      timestamp: '2024-01-01T12:00:01.000Z',
+      level: 'info',
+      messageTemplate: 'Event',
+      properties: {'Payload': {'a': 1}},
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: LogRow(entry: structuredEntry)),
+      ),
+    );
+
+    await tester.tap(find.byType(InkWell));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Payload'), findsOneWidget);
+    expect(find.textContaining('"a": 1'), findsOneWidget);
+  });
+
+  testWidgets('ver log completo navigates to detail page', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: LogRow(entry: entry)),
+      ),
+    );
+
+    await tester.tap(find.byType(InkWell));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ver log completo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Log Event'), findsOneWidget);
+    expect(find.text('Metadados'), findsOneWidget);
+  });
+
+  testWidgets('ver log completo does not collapse expanded card', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: LogRow(entry: entry)),
+      ),
+    );
+
+    await tester.tap(find.byType(InkWell));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.expand_less), findsOneWidget);
+
+    await tester.tap(find.text('Ver log completo'));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.expand_less), findsOneWidget);
+  });
 }
