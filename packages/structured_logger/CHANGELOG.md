@@ -1,3 +1,7 @@
+## 1.0.1-dev.3
+
+* Republish aligned with `v{{version}}` tag workflow.
+
 ## 1.0.1-dev.2
 
 * `SinkSeq` accepts per-event `DeviceIdentifier` from `event.data`, falling back to the sink constructor value when absent or empty.

@@ -1,3 +1,7 @@
+## 1.0.0-dev.3
+
+* Bump `structured_logger` dependency to `^1.0.1-dev.3`.
+
 ## 1.0.0-dev.2
 
 * **Breaking:** remove property `queryParams`; each query param is emitted as `queryParam.<name>` (filterable in CLEF Viewer).
