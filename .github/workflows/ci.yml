@@ -4,8 +4,8 @@ name: CI
 #
 #   PR open  → pre-release : test + preview images/docs
 #   PR open  → master      : test only
-#   PR merge → pre-release : dev version bump, tags, pub.dev prerelease, DEV images/docs
-#   PR merge → master      : stable graduate, tags, pub.dev, :latest images, prod docs, version-bump PR
+#   PR merge → pre-release : dev version bump, tags (publish.yml on tag push), DEV images/docs
+#   PR merge → master      : stable graduate, tags (publish.yml on tag push), sync pre-release, :latest images, prod docs, version-bump PR
 #   push     → pre-release | master : test only
 
 on:
@@ -150,11 +150,6 @@ jobs:
       - name: Create v{{version}} tags
         run: bash scripts/create_v_tags.sh
 
-      - name: Publish to pub.dev (prerelease, core first)
-        run: |
-          dart pub publish --directory packages/structured_logger --force
-          dart pub publish --directory packages/structured_logger_dio_interceptor --force
-
       - name: Push version bumps and tags to pre-release
         run: |
           git push origin HEAD:pre-release --follow-tags
@@ -269,11 +264,6 @@ jobs:
       - name: Create v{{version}} tags
         run: bash scripts/create_v_tags.sh
 
-      - name: Publish to pub.dev (stable, core first)
-        run: |
-          dart pub publish --directory packages/structured_logger --force
-          dart pub publish --directory packages/structured_logger_dio_interceptor --force
-
       - name: Push version bump branch, tags, and open PR to master
         id: version_pr
         env:
@@ -290,10 +280,13 @@ jobs:
             --title "chore(release): version bump from workflow" \
             --body "Automated stable version bump after merging PR #${{ github.event.pull_request.number }}.
 
-          Merge this PR to sync \`master\` pubspec versions. Tags and pub.dev publish already ran from this commit.")
+          Merge this PR to sync \`master\` pubspec versions. Tags were pushed; pub.dev publish runs from tag push via publish.yml.")
 
           echo "Opened version bump PR: ${PR_URL}"
           echo "version_pr_url=${PR_URL}" >> "${GITHUB_OUTPUT}"
+
+      - name: Sync graduated versions back to pre-release
+        run: git push origin HEAD:pre-release
 
       - name: Create GitHub Releases (stable)
         run: |
