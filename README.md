@@ -114,17 +114,17 @@ The repository uses a **develop / master** flow:
 1. Open PR → `develop` → CI runs tests + builds PR preview images/docs (`-DEV-PR`).
 2. **Approve** the PR → `release.yml` runs:
    - Full CI
-   - `melos version --yes --prerelease --preid=DEV`
-   - Pushes tags like `structured_logger-vX.Y.Z-DEV.N` **and** `vX.Y.Z-DEV.N`
-   - Creates GitHub **pre-release**
-   - Publishes packages to pub.dev as **prerelease**
+   - `melos version --yes --prerelease --preid=DEV --no-git-tag-version`
+   - Creates tags `vX.Y.Z-DEV.N` (one per versioned package; same commit may have multiple `v*` tags)
+   - Creates GitHub **pre-release** per `v*` tag
+   - Publishes packages to pub.dev as **prerelease** (tag push triggers `publish.yml`)
    - Pushes DEV images (tags with `-DEV`, no `:latest`) + docs to CF `develop` branch
 3. When ready: open PR `develop` → `master`.
 4. On open → only tests + preview run.
 5. **Approve** → `release.yml` runs:
-   - `melos version --yes --graduate` (or conventional stable)
-   - Pushes final `vX.Y.Z` tags (prefixed + plain)
-   - Stable GitHub release
+   - `melos version --yes --graduate` (or conventional stable) with `--no-git-tag-version`
+   - Pushes final `vX.Y.Z` tags only
+   - Stable GitHub release per `v*` tag
    - Publishes final packages
    - Updates images with `:latest` + docs to CF `master`
 
@@ -136,27 +136,21 @@ Faça isso **uma única vez** para cada pacote (https://pub.dev):
 2. Enable:
    - "Enable publishing from workflow_dispatch events"
    - "Enable publishing from push events" (recommended)
-3. **Tag pattern** (choose one — both are supported by the workflows):
+3. **Tag pattern** (same for both packages):
 
-   **Recommended (matches Melos monorepo tags):**
-   - `structured_logger-v{{version}}`
-   - For the interceptor: `structured_logger_dio_interceptor-v{{version}}`
-
-   **Alternative (plain):**
    - `v{{version}}`
 
-   The automation creates **both** the prefixed tags and the plain `v...` tags and uses guards so the correct package publishes.
+   Example: `v1.0.1-dev.2` publishes the package whose `pubspec.yaml` has `version: 1.0.1-dev.2`.
 
 4. Save. Repeat for both packages.
 
 If you see errors like:
-- "this token has 'refs/tags/structured_logger-vX.Y.Z-DEV.1' ... Expected tag 'vX.Y.Z-...'"
 - "publishing is configured to only be allowed from actions with specific ref pattern"
 
-→ Your Tag pattern in pub.dev does not match the tag we actually pushed for that version.
-  Fix by setting the pattern shown above and re-triggering (or push a new version tag).
+→ Your Tag pattern in pub.dev does not match `v{{version}}`.
+  Fix the pattern and re-run the failed workflow (or push the tag again).
 
-The publish jobs also contain guards that skip when the tag does not match the version in the package's `pubspec.yaml` (prevents cross-package attempts and the exact error above).
+When both packages release in one commit, publish **core first** (`structured_logger`), then the interceptor — the interceptor depends on the new core version on pub.dev.
 
 ### Manual releases (still available)
 

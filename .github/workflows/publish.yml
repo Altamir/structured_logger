@@ -3,28 +3,12 @@ name: Publish to pub.dev
 # Official setup for pub.dev OIDC Trusted Publishing.
 # See: https://dart.dev/tools/pub/automated-publishing
 #
-# IMPORTANT for pub.dev "Automated publishing" settings (per package):
-#   Recommended Tag pattern (matches Melos monorepo tags):
-#     structured_logger-v{{version}}
-#     (or structured_logger_dio_interceptor-v{{version}} for the interceptor)
+# pub.dev "Automated publishing" tag pattern (both packages):
+#   v{{version}}
 #
-#   Alternative supported (we also create plain tags):
-#     v{{version}}
-#
-# The automation (manual dispatch + branch approval flow in release.yml) creates:
-# - The Melos package-prefixed tags (e.g. structured_logger-v1.2.3-DEV.1)
-# - Additional plain v<ver> tags (e.g. v1.2.3-DEV.1) for compatibility
-#
-# Workflow uses the official reusable:
-# uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
-#
-# OIDC via id-token: write (no long-lived secret needed).
-# Custom dispatch kept for monorepo (select package + bump via UI).
-#
-# Automated flow (new):
-# - PR approved → develop : uses --prerelease --preid=DEV → pre-release packages + GH pre-release
-# - PR approved → master  : uses --graduate (or conventional) → stable packages + GH release
-# Tags pushed by the release process trigger the jobs below.
+# Tags are plain v<version> (e.g. v1.0.1-dev.2). A single commit may have
+# multiple v* tags when packages version independently in the monorepo.
+# The resolve-package job maps each tag to the package whose pubspec version matches.
 
 on:
   workflow_dispatch:
@@ -53,19 +37,15 @@ on:
         default: false
         type: boolean
 
-  # Also support the official tag-triggered flow
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
-      - 'structured_logger-v[0-9]+.[0-9]+.[0-9]+*'
-      - '*-v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  # Job for manual dispatch: does versioning with Melos and pushes the tag
   release:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -100,7 +80,6 @@ jobs:
         run: melos run ci
 
       - name: Clean working tree before versioning
-        # Revert any lockfile or artifact changes from bootstrap/CI so melos version sees a clean tree
         run: |
           git checkout -- .
           git clean -fd
@@ -113,53 +92,43 @@ jobs:
       - name: Version packages
         run: |
           if [ "${{ inputs.prerelease }}" = "true" ]; then
-            # For prereleases we use conventional commits path + --prerelease
-            # (manual-version cannot be combined with --prerelease)
             if [ "${{ inputs.package }}" = "all" ]; then
-              melos version --yes --prerelease
+              melos version --yes --prerelease --no-git-tag-version
             else
-              melos version --yes --prerelease --scope=${{ inputs.package }}
+              melos version --yes --prerelease --no-git-tag-version --scope=${{ inputs.package }}
             fi
           else
             if [ "${{ inputs.package }}" = "all" ]; then
               melos version \
                 --yes \
+                --no-git-tag-version \
                 --manual-version "structured_logger:${{ inputs.bump }}" \
                 --manual-version "structured_logger_dio_interceptor:${{ inputs.bump }}"
             else
               melos version \
                 --yes \
+                --no-git-tag-version \
                 --manual-version "${{ inputs.package }}:${{ inputs.bump }}"
             fi
           fi
 
+      - name: Create v{{version}} tags
+        run: bash scripts/create_v_tags.sh
+
       - name: Push version bumps and tags
         run: |
           git push --follow-tags
-
-      - name: Create additional plain v{{version}} tags (pub.dev v{{version}} compatibility)
-        # Creates e.g. v1.2.3-DEV.1 alongside structured_logger-v1.2.3-DEV.1
-        # This lets users configure either pattern in pub.dev Automated publishing.
-        run: |
-          for TAG in $(git tag --points-at HEAD); do
-            if [[ "$TAG" == *-v* ]]; then
-              VER="${TAG##*-v}"
-              echo "Creating compatibility plain tag: v${VER}"
-              git tag "v${VER}" || true
-            fi
-          done
           git push --tags
 
       - name: Create GitHub Releases
         if: success()
         run: |
-          TAGS=$(git tag --points-at HEAD)
           PRERELEASE_FLAG=""
           if [ "${{ inputs.prerelease }}" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
           fi
 
-          for TAG in $TAGS; do
+          for TAG in $(git tag --points-at HEAD | grep '^v'); do
             echo "Creating release for $TAG"
             gh release create "$TAG" \
               --generate-notes \
@@ -169,30 +138,34 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Official publish jobs using the recommended reusable workflow
-  # Triggered by the tag push from the release job (or manual tag push)
-  #
-  # We accept both:
-  #   - structured_logger-vX.Y.Z... (Melos default)
-  #   - vX.Y.Z... (plain, for users who configured pub.dev with v{{version}})
-  #
-  # Note: When using plain `vX.Y.Z` tags, both jobs may evaluate on the push.
-  # The wrong one will fail at pub.dev (ref pattern mismatch), the correct one succeeds.
-  # For cleanest experience, configure pub.dev with the prefixed patterns:
-  #   structured_logger-v{{version}}
-  #   structured_logger_dio_interceptor-v{{version}}
-  publish-structured-logger:
-    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/structured_logger-v') || startsWith(github.ref, 'refs/tags/v'))
-    permissions:
-      id-token: write
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
-    with:
-      working-directory: packages/structured_logger
+  resolve-package:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    outputs:
+      working_directory: ${{ steps.resolve.outputs.working_directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  publish-dio-interceptor:
-    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/structured_logger_dio_interceptor-v') || startsWith(github.ref, 'refs/tags/v'))
+      - name: Resolve package from tag version
+        id: resolve
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          for dir in packages/structured_logger packages/structured_logger_dio_interceptor; do
+            PKG_VER=$(grep '^version:' "$dir/pubspec.yaml" | awk '{print $2}')
+            if [ "$PKG_VER" = "$VER" ]; then
+              echo "working_directory=$dir" >> $GITHUB_OUTPUT
+              echo "Publishing $dir at version $VER"
+              exit 0
+            fi
+          done
+          echo "No package matches tag version $VER" >&2
+          exit 1
+
+  publish:
+    needs: resolve-package
     permissions:
       id-token: write
     uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
     with:
-      working-directory: packages/structured_logger_dio_interceptor
+      working-directory: ${{ needs.resolve-package.outputs.working_directory }}

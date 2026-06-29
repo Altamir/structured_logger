@@ -69,27 +69,20 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Version packages as DEV pre-release
-        # --preid=DEV produces versions like 1.2.3-DEV.N (and tags structured_logger-v1.2.3-DEV.N)
-        run: melos version --yes --prerelease --preid=DEV
+        # --preid=DEV produces versions like 1.2.3-DEV.N; tags are v1.2.3-DEV.N only
+        run: melos version --yes --prerelease --preid=DEV --no-git-tag-version
+
+      - name: Create v{{version}} tags
+        run: bash scripts/create_v_tags.sh
 
       - name: Push version bumps and tags
-        run: git push --follow-tags
-
-      - name: Create additional plain v{{version}} tags (pub.dev v{{version}} compatibility)
-        # Allows pub.dev Automated publishing to be configured as either
-        # structured_logger-v{{version}} or simply v{{version}}
         run: |
-          for TAG in $(git tag --points-at HEAD); do
-            if [[ "$TAG" == *-v* ]]; then
-              VER="${TAG##*-v}"
-              git tag "v${VER}" || true
-            fi
-          done
+          git push --follow-tags
           git push --tags
 
       - name: Create GitHub Releases (as pre-release)
         run: |
-          TAGS=$(git tag --points-at HEAD)
+          TAGS=$(git tag --points-at HEAD | grep '^v' || true)
           for TAG in $TAGS; do
             echo "Creating pre-release for $TAG"
             gh release create "$TAG" \
@@ -179,29 +172,24 @@ jobs:
         # If you prefer to force a specific bump on the release PR, switch to --manual-version.
         run: |
           # Prefer graduate when coming from DEV pre-releases; fall back to conventional if needed.
-          if melos version --yes --graduate 2>/dev/null; then
+          if melos version --yes --graduate --no-git-tag-version 2>/dev/null; then
             echo "Graduated pre-release to stable"
           else
             echo "Graduate not applicable or no pre; falling back to conventional stable versioning"
-            melos version --yes
+            melos version --yes --no-git-tag-version
           fi
 
-      - name: Push version bumps and tags
-        run: git push --follow-tags
+      - name: Create v{{version}} tags
+        run: bash scripts/create_v_tags.sh
 
-      - name: Create additional plain v{{version}} tags (pub.dev v{{version}} compatibility)
+      - name: Push version bumps and tags
         run: |
-          for TAG in $(git tag --points-at HEAD); do
-            if [[ "$TAG" == *-v* ]]; then
-              VER="${TAG##*-v}"
-              git tag "v${VER}" || true
-            fi
-          done
+          git push --follow-tags
           git push --tags
 
       - name: Create GitHub Releases (stable)
         run: |
-          TAGS=$(git tag --points-at HEAD)
+          TAGS=$(git tag --points-at HEAD | grep '^v' || true)
           for TAG in $TAGS; do
             echo "Creating stable release for $TAG"
             gh release create "$TAG" \
