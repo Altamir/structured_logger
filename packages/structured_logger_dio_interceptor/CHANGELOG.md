@@ -1,3 +1,8 @@
+## 1.0.0-dev.4
+
+* Extract `queryParam.*` from query strings embedded in the request URL when `queryParameters` is empty.
+* Log `path` without the query string for consistent REQUEST / RESPONSE / ON_ERROR events.
+
 ## 1.0.0-dev.3
 
 * Bump `structured_logger` dependency to `^1.0.1-dev.3`.
