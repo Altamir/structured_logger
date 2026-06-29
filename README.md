@@ -113,8 +113,8 @@ The repository uses a **pre-release / master** flow. Everything runs in a single
 |-------|-----------|
 | PR open → `pre-release` | Tests + preview images (`-DEV-PR`) + preview docs |
 | PR open → `master` | Tests only |
-| **Merge** PR → `pre-release` | Dev version bump, tags, pub.dev prerelease, DEV images, docs |
-| **Merge** PR → `master` | Stable graduate, tags, pub.dev, `:latest` images, prod docs, version-bump PR |
+| **Merge** PR → `pre-release` | Dev version bump, tags → [`publish.yml`](.github/workflows/publish.yml), DEV images, docs |
+| **Merge** PR → `master` | Stable graduate, tags → `publish.yml`, sync `pre-release`, `:latest` images, prod docs, version-bump PR |
 | Push → `pre-release` or `master` | Tests only |
 
 ### Automated flow (preferred)
@@ -124,18 +124,26 @@ The repository uses a **pre-release / master** flow. Everything runs in a single
    - Full CI
    - `melos version --yes --prerelease --preid=DEV --no-git-tag-version`
    - Creates tags `vX.Y.Z-dev.N` (one per versioned package)
-   - Publishes packages to pub.dev as **prerelease** (inline, no separate workflow)
+   - Pushes tags `vX.Y.Z-dev.N` → triggers [`publish.yml`](.github/workflows/publish.yml) (pub.dev requires **tag push**, not `pull_request`)
    - Creates GitHub **pre-release** per `v*` tag
    - Pushes DEV images (tags with `-DEV`, no `:latest`) + docs to CF `pre-release` branch
 3. When ready: open PR `pre-release` → `master` (tests only while open).
 4. **Merge** → `stable-release` job runs:
    - `melos version --yes --graduate` (or conventional stable) with `--no-git-tag-version`
-   - Publishes stable versions to pub.dev (inline)
-   - Pushes final `vX.Y.Z` tags
+   - Pushes final `vX.Y.Z` tags → triggers `publish.yml` on pub.dev
+   - **Syncs `pre-release`** with graduated versions (so the next dev cycle starts from stable, not stale `-dev` versions)
    - Opens a **follow-up PR** `chore/release-*` with pubspec bumps (because `master` blocks direct push)
 5. **Merge the version-bump PR** to sync `master` pubspecs.
    - Stable GitHub release per `v*` tag
    - Images with `:latest` + docs to CF `master`
+
+### Keeping `pre-release` in sync with `master`
+
+After a stable release, `stable-release` pushes the graduated commit to `pre-release` automatically. That way the next feature merge on `pre-release` bumps from the stable version (e.g. `1.0.2-dev.1`), not an old `-dev` counter.
+
+`master` pubspecs are updated separately when you merge the `chore/release-*` PR (required because `master` is protected). Until that merge, `pre-release` may show stable versions before `master` does — that is expected.
+
+**Requirement:** `pre-release` must allow push from `github-actions[bot]` (unprotected branch, or bypass for the bot).
 
 ### Protected `master` (no bypass required)
 
@@ -153,6 +161,17 @@ In **Settings → Actions → General → Workflow permissions**:
 
 Without step 2, `gh pr create` fails with `GitHub Actions is not permitted to create or approve pull requests`.
 
+### Why publish runs on tag push (not in the merge job)
+
+pub.dev OIDC **rejects** `dart pub publish` from `pull_request` events. Automated releases in `ci.yml` only push tags; [`publish.yml`](.github/workflows/publish.yml) publishes when those tags arrive (`push` event). See [dart.dev/go/publishing-from-github](https://dart.dev/go/publishing-from-github).
+
+If publish failed after tags were created, re-run **Actions → Publish to pub.dev** manually, or delete and re-push the tag:
+
+```bash
+git push origin :refs/tags/v1.0.1-dev.6   # delete remote tag
+git push origin v1.0.1-dev.6               # push again → triggers publish.yml
+```
+
 ### Prerequisites (pub.dev Automated publishing) — IMPORTANT
 
 Faça isso **uma única vez** para cada pacote (https://pub.dev):
@@ -160,7 +179,7 @@ Faça isso **uma única vez** para cada pacote (https://pub.dev):
 1. Package admin → **Automated publishing**
 2. Enable:
    - "Enable publishing from workflow_dispatch events"
-   - "Enable publishing from GitHub Actions" (OIDC; used by `ci.yml` on merge)
+   - "Enable publishing from push events" (required — `publish.yml` runs on **tag push**)
 3. **Tag pattern** (same for both packages):
 
    - `v{{version}}`
