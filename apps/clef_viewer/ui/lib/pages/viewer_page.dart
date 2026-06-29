@@ -7,7 +7,6 @@ import '../models/log_filter.dart';
 import '../services/device_suggestion_cache.dart';
 import '../services/log_api_client.dart';
 import '../services/sse_client.dart';
-import '../theme/clef_design_system.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/group_panel.dart';
 import '../widgets/log_table.dart';
@@ -16,18 +15,20 @@ import '../widgets/resizable_split_pane.dart';
 class ViewerPage extends StatefulWidget {
   final LogFilter sharedFilter;
   final ValueChanged<LogFilter> onFilterChanged;
+  final ValueChanged<bool>? onPausedChanged;
 
   const ViewerPage({
     super.key,
     required this.sharedFilter,
     required this.onFilterChanged,
+    this.onPausedChanged,
   });
 
   @override
-  State<ViewerPage> createState() => _ViewerPageState();
+  State<ViewerPage> createState() => ViewerPageState();
 }
 
-class _ViewerPageState extends State<ViewerPage> {
+class ViewerPageState extends State<ViewerPage> {
   static const maxInMemory = 1000;
 
   final _api = LogApiClient();
@@ -150,7 +151,9 @@ class _ViewerPageState extends State<ViewerPage> {
     });
   }
 
-  void _togglePause() {
+  bool get isPaused => _paused;
+
+  void togglePause() {
     setState(() {
       _paused = !_paused;
       if (_paused) {
@@ -162,6 +165,7 @@ class _ViewerPageState extends State<ViewerPage> {
         _loadInitial();
       }
     });
+    widget.onPausedChanged?.call(_paused);
   }
 
   void _applyFilter(LogFilter filter) {
@@ -223,17 +227,6 @@ class _ViewerPageState extends State<ViewerPage> {
                       _filterBarKey.currentState?.applyPropertyFilter(param);
                     },
                   ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(ClefDs.spaceMd),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              onPressed: _togglePause,
-              icon: Icon(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded),
-              label: Text(_paused ? 'Resume' : 'Pause'),
-            ),
           ),
         ),
       ],
