@@ -1,3 +1,7 @@
+## 1.0.0-dev.5
+
+* Bump `structured_logger` dependency to `^1.0.1-dev.5`.
+
 ## 1.0.0-dev.4
 
 * Extract `queryParam.*` from query strings embedded in the request URL when `queryParameters` is empty.
