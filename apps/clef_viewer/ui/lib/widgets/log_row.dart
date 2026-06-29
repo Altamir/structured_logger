@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/log_entry.dart';
+import '../pages/log_detail_page.dart';
+import '../theme/clef_design_system.dart';
+import '../utils/json_display_helper.dart';
 import '../utils/log_copy_formatter.dart';
+import '../utils/property_filter_helper.dart';
 import 'display_message_text.dart';
+import 'json_value_block.dart';
 import 'level_badge.dart';
+import 'monospace_text_block.dart';
 import 'property_chip.dart';
 
 class LogRow extends StatefulWidget {
@@ -42,6 +48,38 @@ class _LogRowState extends State<LogRow> {
       messenger.showSnackBar(
         const SnackBar(content: Text('Falha ao copiar')),
       );
+    }
+  }
+
+  void _openLogDetail() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => LogDetailPage(
+          entry: widget.entry,
+          onPropertyFilter: widget.onPropertyFilter,
+        ),
+      ),
+    );
+  }
+
+  Iterable<MapEntry<String, dynamic>> get _primitiveProperties sync* {
+    for (final property in widget.entry.properties.entries) {
+      if (JsonDisplayHelper.isStructuredJsonValue(property.value)) continue;
+      if (PropertyFilterHelper.isFilterable(property.value)) {
+        yield property;
+      }
+    }
+  }
+
+  Iterable<MapEntry<String, dynamic>> get _structuredProperties sync* {
+    for (final property in widget.entry.properties.entries) {
+      if (JsonDisplayHelper.isStructuredJsonValue(property.value)) {
+        yield property;
+        continue;
+      }
+      if (!PropertyFilterHelper.isFilterable(property.value)) {
+        yield property;
+      }
     }
   }
 
@@ -105,32 +143,56 @@ class _LogRowState extends State<LogRow> {
                 if (_expanded) ...[
                   if (widget.entry.exception != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        widget.entry.exception!,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          color: Colors.red,
-                        ),
+                      padding: const EdgeInsets.only(top: ClefDs.spaceSm),
+                      child: MonospaceTextBlock(
+                        content: widget.entry.exception!,
+                        previewTitle: 'Exception',
+                        color: Theme.of(context).colorScheme.error,
                       ),
                     ),
-                  if (widget.entry.properties.isNotEmpty)
+                  if (_primitiveProperties.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: ClefDs.spaceSm),
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: widget.entry.properties.entries
+                        children: _primitiveProperties
                             .map(
-                              (e) => PropertyChip(
-                                propertyKey: e.key,
-                                value: e.value,
+                              (property) => PropertyChip(
+                                propertyKey: property.key,
+                                value: property.value,
                                 onFilter: widget.onPropertyFilter ?? (_) {},
                               ),
                             )
                             .toList(),
                       ),
                     ),
+                  if (_structuredProperties.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: ClefDs.spaceSm),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _structuredProperties
+                            .map(
+                              (property) => JsonValueBlock(
+                                propertyKey: property.key,
+                                value: property.value,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: ClefDs.spaceXs),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: _openLogDetail,
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text('Ver log completo'),
+                      ),
+                    ),
+                  ),
                 ],
               ],
             ),
