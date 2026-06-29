@@ -1,3 +1,7 @@
+## 0.1.1-dev.0
+
+ - **FIX**: adiciona LICENSE e README.md nos pacotes. ([8c52242c](https://github.com/Altamir/structured_logger/commit/8c52242cbe631a7d2b38f2d790015ff8ae391192))
+
 ## 0.1.0
 
 * Initial release of `structured_logger_dio_interceptor`.
