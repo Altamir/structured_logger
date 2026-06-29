@@ -104,38 +104,54 @@ This is a simple example, and you can customize Sinks and log data as needed.
 
 ## Releasing new versions (pub.dev) + Branching model
 
-The repository uses a **develop / master** flow:
+The repository uses a **pre-release / master** flow. Everything runs in a single workflow ([`ci.yml`](.github/workflows/ci.yml)):
 
-- `develop` — integration branch. All feature PRs target `develop`.
-- `master` — stable. Only PRs from `develop` to `master` for final releases.
+- `pre-release` — integration branch. Feature PRs target `pre-release`.
+- `master` — stable. Promotion PRs go `pre-release` → `master`.
+
+| Event | What runs |
+|-------|-----------|
+| PR open → `pre-release` | Tests + preview images (`-DEV-PR`) + preview docs |
+| PR open → `master` | Tests only |
+| **Merge** PR → `pre-release` | Dev version bump, tags, pub.dev prerelease, DEV images, docs |
+| **Merge** PR → `master` | Stable graduate, tags, pub.dev, `:latest` images, prod docs, version-bump PR |
+| Push → `pre-release` or `master` | Tests only |
 
 ### Automated flow (preferred)
 
-1. Open PR → `develop` → CI runs tests + builds PR preview images/docs (`-DEV-PR`).
-2. **Merge** the PR → `release.yml` runs:
+1. Open PR → `pre-release` → CI runs tests + PR preview images/docs (`-DEV-PR`).
+2. **Merge** the PR → `prerelease-release` job runs:
    - Full CI
    - `melos version --yes --prerelease --preid=DEV --no-git-tag-version`
-   - Creates tags `vX.Y.Z-DEV.N` (one per versioned package; same commit may have multiple `v*` tags)
+   - Creates tags `vX.Y.Z-dev.N` (one per versioned package)
+   - Publishes packages to pub.dev as **prerelease** (inline, no separate workflow)
    - Creates GitHub **pre-release** per `v*` tag
-   - Publishes packages to pub.dev as **prerelease** (tag push triggers `publish.yml`)
-   - Pushes DEV images (tags with `-DEV`, no `:latest`) + docs to CF `develop` branch
-3. When ready: open PR `develop` → `master`.
-4. On open → only tests + preview run.
-5. **Merge** → `release.yml` runs:
+   - Pushes DEV images (tags with `-DEV`, no `:latest`) + docs to CF `pre-release` branch
+3. When ready: open PR `pre-release` → `master` (tests only while open).
+4. **Merge** → `stable-release` job runs:
    - `melos version --yes --graduate` (or conventional stable) with `--no-git-tag-version`
-   - Pushes final `vX.Y.Z` tags (triggers `publish.yml` on pub.dev)
+   - Publishes stable versions to pub.dev (inline)
+   - Pushes final `vX.Y.Z` tags
    - Opens a **follow-up PR** `chore/release-*` with pubspec bumps (because `master` blocks direct push)
-6. **Merge the version-bump PR** (one click, same as any other PR) to sync `master` pubspecs.
+5. **Merge the version-bump PR** to sync `master` pubspecs.
    - Stable GitHub release per `v*` tag
-   - Updates images with `:latest` + docs to CF `master`
+   - Images with `:latest` + docs to CF `master`
 
 ### Protected `master` (no bypass required)
 
-`master` does not accept direct push from Actions. The workflow does **not** need a bypass list or `RELEASE_PAT`:
+`master` does not accept direct push from Actions. The workflow does **not** need a bypass list or personal access token:
 
-1. After your feature PR merges, `stable-release` graduates versions, pushes **tags**, and opens `chore/release-<run_id>` → `master`.
+1. After your promotion PR merges, `stable-release` graduates versions, publishes to pub.dev, pushes **tags**, and opens `chore/release-<run_id>` → `master`.
 2. You merge that small PR (pubspec/CHANGELOG only).
-3. pub.dev publish runs from **tag push**, without waiting for step 2.
+
+### GitHub Actions permissions (required once)
+
+In **Settings → Actions → General → Workflow permissions**:
+
+1. Select **Read and write permissions**
+2. Enable **Allow GitHub Actions to create and approve pull requests**
+
+Without step 2, `gh pr create` fails with `GitHub Actions is not permitted to create or approve pull requests`.
 
 ### Prerequisites (pub.dev Automated publishing) — IMPORTANT
 
@@ -144,7 +160,7 @@ Faça isso **uma única vez** para cada pacote (https://pub.dev):
 1. Package admin → **Automated publishing**
 2. Enable:
    - "Enable publishing from workflow_dispatch events"
-   - "Enable publishing from push events" (recommended)
+   - "Enable publishing from GitHub Actions" (OIDC; used by `ci.yml` on merge)
 3. **Tag pattern** (same for both packages):
 
    - `v{{version}}`

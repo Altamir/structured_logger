@@ -14,7 +14,7 @@ on:
         default: ''
         type: string
       is_dev:
-        description: 'Whether this is a develop pre-release deployment (deploy to develop CF branch)'
+        description: 'Whether this is a pre-release deployment (deploy to pre-release CF branch)'
         required: false
         default: 'false'
         type: string
@@ -66,9 +66,9 @@ jobs:
             echo "project=structured-logger" >> $GITHUB_OUTPUT
             echo "branch=pr-${{ inputs.pr_number }}" >> $GITHUB_OUTPUT
           elif [[ "${{ inputs.is_dev }}" == "true" ]]; then
-            # Pre-releases from develop
+            # Pre-releases from pre-release branch
             echo "project=structured-logger" >> $GITHUB_OUTPUT
-            echo "branch=develop" >> $GITHUB_OUTPUT
+            echo "branch=pre-release" >> $GITHUB_OUTPUT
           else
             # Stable / master
             echo "project=structured-logger" >> $GITHUB_OUTPUT

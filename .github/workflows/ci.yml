@@ -1,24 +1,36 @@
 name: CI
 
+# Single workflow — behavior depends on event and PR base branch:
+#
+#   PR open  → pre-release : test + preview images/docs
+#   PR open  → master      : test only
+#   PR merge → pre-release : dev version bump, tags, pub.dev prerelease, DEV images/docs
+#   PR merge → master      : stable graduate, tags, pub.dev, :latest images, prod docs, version-bump PR
+#   push     → pre-release | master : test only
+
 on:
   pull_request:
-    branches: [ develop, master ]
+    branches: [pre-release, master]
+    types: [opened, synchronize, reopened, closed]
   push:
-    branches: [ develop, master ]
+    branches: [pre-release, master]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'pull_request' || github.event.action != 'closed' }}
 
 permissions:
   contents: read
-  packages: write     # needed for calling clef-viewer-images reusable workflow
-  deployments: write  # needed for calling deploy-docs reusable workflow
+  packages: write
+  deployments: write
 
 jobs:
   test:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    timeout-minutes: 20   # accommodates cold melos bootstrap + analyze + tests (NFR)
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -43,34 +55,278 @@ jobs:
 
       - name: Bootstrap workspace
         run: melos bootstrap
-        # Produces single root pubspec.lock; respects categories and resolution
 
       - name: Analyze + Test (Dart + Flutter)
         run: melos run ci
-        # Defined in root pubspec melos: section as:
-        # analyze && analyze:flutter && test:dart && test:flutter
 
-  # Run image builds after tests pass (on both PR and push).
-  # On PR: tag with <run_number>-DEV-PR (preview)
-  # On push to develop: tag with <run>-DEV + sha-DEV (no :latest)
-  # On push to master: tag with <run>, :latest and :sha
-  # latest is ONLY updated from master.
-  build-images:
+  preview-images:
     needs: test
-    if: needs.test.result == 'success'
+    if: >-
+      needs.test.result == 'success' &&
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      github.event.pull_request.base.ref == 'pre-release'
     uses: ./.github/workflows/clef-viewer-images.yml
     with:
-      is_pr: ${{ github.event_name == 'pull_request' }}
-      pr_number: ${{ github.event.pull_request.number || '' }}
-      is_dev: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+      is_pr: 'true'
+      pr_number: ${{ github.event.pull_request.number }}
     secrets: inherit
 
-  deploy-docs:
+  preview-docs:
     needs: test
-    if: needs.test.result == 'success'
+    if: >-
+      needs.test.result == 'success' &&
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      github.event.pull_request.base.ref == 'pre-release'
     uses: ./.github/workflows/deploy-docs.yml
     with:
-      is_pr: ${{ github.event_name == 'pull_request' }}
-      pr_number: ${{ github.event.pull_request.number || '' }}
-      is_dev: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+      is_pr: 'true'
+      pr_number: ${{ github.event.pull_request.number }}
+    secrets: inherit
+
+  prerelease-release:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'pre-release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
+      deployments: write
+    outputs:
+      release_sha: ${{ steps.sha.outputs.sha }}
+
+    steps:
+      - name: Checkout (merge commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach to base branch for melos
+        run: git checkout -B pre-release
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get root dependencies
+        run: dart pub get
+
+      - name: Activate Melos
+        run: dart pub global activate melos --version 8.0.0
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      - name: Run CI checks (must pass before release)
+        run: melos run ci
+
+      - name: Clean working tree before versioning
+        run: |
+          git checkout -- .
+          git clean -fd
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Version packages as DEV pre-release
+        run: melos version --yes --prerelease --preid=DEV --no-git-tag-version
+
+      - name: Create v{{version}} tags
+        run: bash scripts/create_v_tags.sh
+
+      - name: Publish to pub.dev (prerelease, core first)
+        run: |
+          dart pub publish --directory packages/structured_logger --force
+          dart pub publish --directory packages/structured_logger_dio_interceptor --force
+
+      - name: Push version bumps and tags to pre-release
+        run: |
+          git push origin HEAD:pre-release --follow-tags
+          git push --tags
+
+      - name: Create GitHub Releases (as pre-release)
+        run: |
+          TAGS=$(git tag --points-at HEAD | grep '^v' || true)
+          for TAG in $TAGS; do
+            echo "Creating pre-release for $TAG"
+            gh release create "$TAG" \
+              --generate-notes \
+              --prerelease \
+              --title "$TAG"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Capture versioned commit sha
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+  prerelease-images:
+    needs: prerelease-release
+    if: needs.prerelease-release.result == 'success'
+    uses: ./.github/workflows/clef-viewer-images.yml
+    with:
+      is_pr: 'false'
+      is_dev: 'true'
+      checkout_ref: ${{ needs.prerelease-release.outputs.release_sha }}
+    secrets: inherit
+
+  prerelease-docs:
+    needs: prerelease-release
+    if: needs.prerelease-release.result == 'success'
+    uses: ./.github/workflows/deploy-docs.yml
+    with:
+      is_pr: 'false'
+      is_dev: 'true'
+      checkout_ref: ${{ needs.prerelease-release.outputs.release_sha }}
+    secrets: inherit
+
+  stable-release:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+      packages: write
+      deployments: write
+    outputs:
+      release_sha: ${{ steps.sha.outputs.sha }}
+
+    steps:
+      - name: Checkout (merge commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach to base branch for melos
+        run: git checkout -B master
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get root dependencies
+        run: dart pub get
+
+      - name: Activate Melos
+        run: dart pub global activate melos --version 8.0.0
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      - name: Run CI checks (must pass before release)
+        run: melos run ci
+
+      - name: Clean working tree before versioning
+        run: |
+          git checkout -- .
+          git clean -fd
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Graduate / create stable release version
+        run: |
+          if melos version --yes --graduate --no-git-tag-version 2>/dev/null; then
+            echo "Graduated pre-release to stable"
+          else
+            echo "Graduate not applicable; falling back to conventional stable versioning"
+            melos version --yes --no-git-tag-version
+          fi
+
+      - name: Create v{{version}} tags
+        run: bash scripts/create_v_tags.sh
+
+      - name: Publish to pub.dev (stable, core first)
+        run: |
+          dart pub publish --directory packages/structured_logger --force
+          dart pub publish --directory packages/structured_logger_dio_interceptor --force
+
+      - name: Push version bump branch, tags, and open PR to master
+        id: version_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BRANCH: chore/release-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:${RELEASE_BRANCH}"
+          git push origin --tags
+
+          PR_URL=$(gh pr create \
+            --base master \
+            --head "${RELEASE_BRANCH}" \
+            --title "chore(release): version bump from workflow" \
+            --body "Automated stable version bump after merging PR #${{ github.event.pull_request.number }}.
+
+          Merge this PR to sync \`master\` pubspec versions. Tags and pub.dev publish already ran from this commit.")
+
+          echo "Opened version bump PR: ${PR_URL}"
+          echo "version_pr_url=${PR_URL}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create GitHub Releases (stable)
+        run: |
+          TAGS=$(git tag --points-at HEAD | grep '^v' || true)
+          for TAG in $TAGS; do
+            echo "Creating stable release for $TAG"
+            gh release create "$TAG" \
+              --generate-notes \
+              --title "$TAG"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Capture versioned commit sha
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+  stable-images:
+    needs: stable-release
+    if: needs.stable-release.result == 'success'
+    uses: ./.github/workflows/clef-viewer-images.yml
+    with:
+      is_pr: 'false'
+      is_dev: 'false'
+      checkout_ref: ${{ needs.stable-release.outputs.release_sha }}
+    secrets: inherit
+
+  stable-docs:
+    needs: stable-release
+    if: needs.stable-release.result == 'success'
+    uses: ./.github/workflows/deploy-docs.yml
+    with:
+      is_pr: 'false'
+      is_dev: 'false'
+      checkout_ref: ${{ needs.stable-release.outputs.release_sha }}
     secrets: inherit
