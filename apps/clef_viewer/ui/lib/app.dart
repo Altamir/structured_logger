@@ -5,6 +5,7 @@ import 'pages/admin_page.dart';
 import 'pages/viewer_page.dart';
 import 'theme/clef_design_system.dart';
 import 'theme/clef_theme.dart';
+import 'widgets/stream_pause_button.dart';
 import 'widgets/version_bar.dart';
 
 class ClefViewerApp extends StatefulWidget {
@@ -15,8 +16,11 @@ class ClefViewerApp extends StatefulWidget {
 }
 
 class _ClefViewerAppState extends State<ClefViewerApp> {
+  final _viewerPageKey = GlobalKey<ViewerPageState>();
+
   int _index = 0;
   LogFilter _sharedFilter = const LogFilter();
+  bool _streamPaused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +35,11 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
             child: VersionBar(),
           ),
           actions: [
+            if (_index == 0)
+              StreamPauseIconButton(
+                isPaused: _streamPaused,
+                onPressed: () => _viewerPageKey.currentState?.togglePause(),
+              ),
             Padding(
               padding: const EdgeInsets.only(right: ClefDs.spaceMd),
               child: _SegmentedNav(
@@ -42,8 +51,10 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
         ),
         body: _index == 0
             ? ViewerPage(
+                key: _viewerPageKey,
                 sharedFilter: _sharedFilter,
                 onFilterChanged: (filter) => setState(() => _sharedFilter = filter),
+                onPausedChanged: (paused) => setState(() => _streamPaused = paused),
               )
             : AdminPage(activeFilter: _sharedFilter),
       ),
