@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:structured_logger/structured_logger.dart';
 import 'package:structured_logger_dio_interceptor/structured_logger_dio_interceptor.dart';
 import 'package:test/test.dart';
@@ -77,6 +80,67 @@ void main() {
       );
     });
 
+    test('constructor throws ArgumentError when deviceHeaderName is empty', () {
+      expect(
+        () => DioLoggingInterceptor(logger, deviceHeaderName: ''),
+        throwsA(predicate<ArgumentError>(
+            (e) => e.message.toString().contains('cannot be empty'))),
+      );
+    });
+
+    test('onRequest emits DeviceIdentifier when X-device-id header is present',
+        () {
+      const deviceId = 'C6386393-33EE-48DC-8E49-AF77384C7700';
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'GET');
+      options.headers['X-device-id'] = deviceId;
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      expect(sink.events.single.data!['DeviceIdentifier'], deviceId);
+    });
+
+    test('onRequest omits DeviceIdentifier when device header is absent', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'GET');
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      expect(sink.events.single.data!.containsKey('DeviceIdentifier'), isFalse);
+    });
+
+    test('device header lookup is case-insensitive', () {
+      const deviceId = 'device-from-header';
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'GET');
+      options.headers['x-device-id'] = deviceId;
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      expect(sink.events.single.data!['DeviceIdentifier'], deviceId);
+    });
+
+    test('onResponse propagates DeviceIdentifier from request headers', () {
+      const deviceId = 'device-on-response';
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/bar', method: 'POST');
+      options.headers['X-Request-Seq-Id'] = 'req-123';
+      options.headers['X-Request-Start-Time'] =
+          DateTime.now().millisecondsSinceEpoch - 10;
+      options.headers['X-device-id'] = deviceId;
+
+      final response = Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {'ok': true},
+      );
+      response.headers = Headers.fromMap({});
+
+      interceptor.onResponse(response, ResponseInterceptorHandler());
+
+      expect(sink.events.single.data!['DeviceIdentifier'], deviceId);
+    });
+
     test(
         'onRequest emits REQUEST event with UUID header, start time, and properties',
         () {
@@ -88,7 +152,12 @@ void main() {
 
       expect(sink.events, hasLength(1));
       final event = sink.events.first;
-      expect(event.mt, startsWith('REQUEST:'));
+      expect(
+        event.mt,
+        'REQUEST: {method} {path} {correlationalSeqID} {queryParams} {headers}',
+      );
+      expect(event.mt, isNot(contains('{@')));
+      expect(event.mt, isNot(contains('{data}')));
       expect(event.level, 'info');
       final data = event.data!;
       expect(data['event_type'], 'REQUEST');
@@ -98,6 +167,36 @@ void main() {
       expect((data['correlationalSeqID'] as String).isNotEmpty, true);
       expect(options.headers['X-Request-Seq-Id'], data['correlationalSeqID']);
       expect(options.headers['X-Request-Start-Time'], isA<int>());
+      expect(data['queryParams'], {});
+    });
+
+    test('REQUEST template interpolates with data keys', () async {
+      final cap = CaptureSink();
+      final capLogger = StructureLogger()..addSink(cap);
+      final interceptor = DioLoggingInterceptor(capLogger);
+      final options = RequestOptions(path: '/api/foo', method: 'GET');
+      interceptor.onRequest(options, RequestInterceptorHandler());
+      await Future<void>.delayed(Duration.zero);
+
+      final event = cap.events.single;
+      final rendered = event.mt.replaceAllMapped(
+        RegExp(r'{(.*?)}'),
+        (match) => event.data?[match.group(1)]?.toString() ?? '',
+      );
+      expect(rendered, startsWith('REQUEST: GET /api/foo '));
+      expect(rendered, isNot(contains('{@')));
+      expect(rendered, isNot(contains('{method}')));
+    });
+
+    test('request body stays in properties only, not in template', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(path: '/api/foo', method: 'POST');
+      options.data = {'payload': true};
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final event = sink.events.single;
+      expect(event.mt, isNot(contains('{data}')));
+      expect(event.data!['data'], {'payload': true});
     });
 
     test('supports custom correlationalHeaderName roundtrip', () {
@@ -138,6 +237,8 @@ void main() {
 
       expect(sink.events, hasLength(1));
       final event = sink.events.first;
+      expect(event.mt, isNot(contains('{@')));
+      expect(event.mt, isNot(contains('{data}')));
       expect(event.mt, startsWith('RESPONSE:'));
       expect(event.level, 'info');
       final data = event.data!;
@@ -204,6 +305,8 @@ void main() {
               'should have logged at least one ON_ERROR via Dio error path');
       final errEvent =
           sink.events.firstWhere((e) => e.data?['event_type'] == 'ON_ERROR');
+      expect(errEvent.mt, isNot(contains('{@')));
+      expect(errEvent.mt, isNot(contains('{errorData}')));
       expect(errEvent.mt, startsWith('ERROR:'));
       expect(errEvent.level, 'error');
       final data = errEvent.data!;
@@ -237,6 +340,7 @@ void main() {
       final errEvent = sink.events.firstWhere((e) => e.data?['event_type'] == 'ON_ERROR');
       final data = errEvent.data!;
       expect(data['statusCode'], 503);
+      expect(data.containsKey('errorData'), isTrue);
       expect(data['message'], 'unavailable');
       expect(data['path'], '/api/err-status');
       expect(data['elapsedTime'], greaterThanOrEqualTo(0));
@@ -292,6 +396,58 @@ void main() {
       expect(cap.events, hasLength(1));
       expect(cap.events.single.data!['event_type'], 'REQUEST');
       expect(cap.events.single.data!['path'], '/cross');
+    });
+
+    test('SinkSeq uses X-device-id as DeviceIdentifier with static fallback',
+        () async {
+      const deviceId = 'per-request-device';
+      late String capturedBody;
+
+      final client = MockClient((request) async {
+        capturedBody = request.body;
+        return http.Response('', 201);
+      });
+
+      final seqLogger = StructureLogger()
+        ..addSink(SinkSeq(
+          'https://seq.example.com',
+          deviceIdentifier: 'static-app',
+          client: client,
+        ));
+      final interceptor = DioLoggingInterceptor(seqLogger);
+      final options = RequestOptions(path: '/api/device', method: 'GET');
+      options.headers['X-device-id'] = deviceId;
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+      await Future<void>.delayed(Duration.zero);
+
+      final body = jsonDecode(capturedBody) as Map<String, dynamic>;
+      expect(body['DeviceIdentifier'], deviceId);
+    });
+
+    test('SinkSeq falls back to static deviceIdentifier when header is absent',
+        () async {
+      late String capturedBody;
+
+      final client = MockClient((request) async {
+        capturedBody = request.body;
+        return http.Response('', 201);
+      });
+
+      final seqLogger = StructureLogger()
+        ..addSink(SinkSeq(
+          'https://seq.example.com',
+          deviceIdentifier: 'static-app',
+          client: client,
+        ));
+      final interceptor = DioLoggingInterceptor(seqLogger);
+      final options = RequestOptions(path: '/api/no-device', method: 'GET');
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+      await Future<void>.delayed(Duration.zero);
+
+      final body = jsonDecode(capturedBody) as Map<String, dynamic>;
+      expect(body['DeviceIdentifier'], 'static-app');
     });
   });
 }

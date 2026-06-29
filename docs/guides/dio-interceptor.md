@@ -39,8 +39,21 @@ Todos os eventos passam pelos sinks registrados — sem HTTP direto do intercept
 DioLoggingInterceptor(
   this._logger, {
   this.correlationalHeaderName = 'X-Request-Seq-Id',
+  this.deviceHeaderName = 'X-device-id',
 })
 ```
 
-- `correlationalHeaderName` não pode ser vazio (assert).
-- `deviceIdentifier` fica em `SinkSeq`.
+- `correlationalHeaderName` e `deviceHeaderName` não podem ser vazios.
+- `deviceIdentifier` padrão fica em `SinkSeq`; quando a requisição inclui o header `X-device-id` (ou o nome configurado em `deviceHeaderName`), esse valor é usado como `DeviceIdentifier` do evento. Sem o header, vale o `deviceIdentifier` do `SinkSeq`.
+
+## Templates e properties
+
+Os message templates usam placeholders `{propriedade}` alinhados ao `StructureLogger` (não `{@propriedade}`).
+
+- REQUEST: `REQUEST: {method} {path} {correlationalSeqID} {queryParams} {headers}`
+- RESPONSE: `RESPONSE: {statusCode} {path} {correlationalSeqID} {headers} {elapsedTime}`
+- ERROR: `ERROR: {statusCode} {path} {correlationalSeqID} {message} {headers} {elapsedTime}`
+
+Corpos de request/response **não** fazem parte do `@mt`; são emitidos como properties estruturadas (`data`, `errorData`) para busca e inspeção no viewer.
+
+Veja o código do pacote para o mapa completo de properties (`event_type`, `elapsedTime`, etc.).

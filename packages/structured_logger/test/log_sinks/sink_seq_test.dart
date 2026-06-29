@@ -66,7 +66,72 @@ void main() {
       expect(body['@t'], '2024-01-01T00:00:00.000Z');
       expect(body['@mt'], 'Hello {name}');
       expect(body['@l'], 'info');
-      expect(body['DeviceIdentifier'], '');
+      expect(body['DeviceIdentifier'], 'bad-device');
+    });
+
+    test('per-event DeviceIdentifier overrides sink constructor default', () async {
+      late String capturedBody;
+
+      final client = MockClient((request) async {
+        capturedBody = request.body;
+        return Response('', 201);
+      });
+
+      final sink = SinkSeq(
+        'https://seq.example.com',
+        deviceIdentifier: 'static-device',
+        client: client,
+      );
+      await sink.write(LogModel(
+        mt: 'test',
+        data: {'DeviceIdentifier': 'per-event-device'},
+      ));
+
+      final body = jsonDecode(capturedBody) as Map<String, dynamic>;
+      expect(body['DeviceIdentifier'], 'per-event-device');
+    });
+
+    test('falls back to sink constructor when event has no DeviceIdentifier',
+        () async {
+      late String capturedBody;
+
+      final client = MockClient((request) async {
+        capturedBody = request.body;
+        return Response('', 201);
+      });
+
+      final sink = SinkSeq(
+        'https://seq.example.com',
+        deviceIdentifier: 'static-device',
+        client: client,
+      );
+      await sink.write(LogModel(mt: 'test', data: {'name': 'John'}));
+
+      final body = jsonDecode(capturedBody) as Map<String, dynamic>;
+      expect(body['DeviceIdentifier'], 'static-device');
+    });
+
+    test('empty per-event DeviceIdentifier falls back to sink constructor',
+        () async {
+      late String capturedBody;
+
+      final client = MockClient((request) async {
+        capturedBody = request.body;
+        return Response('', 201);
+      });
+
+      final sink = SinkSeq(
+        'https://seq.example.com',
+        deviceIdentifier: 'static-device',
+        client: client,
+      );
+      await sink.write(LogModel(
+        mt: 'test',
+        data: {'DeviceIdentifier': ''},
+      ));
+
+      final body = jsonDecode(capturedBody) as Map<String, dynamic>;
+      expect(body['DeviceIdentifier'], 'static-device');
     });
 
     test('normalizes seqUrl with trailing slash', () async {
