@@ -70,12 +70,18 @@ class SinkSeq extends LogSink {
     String timestamp,
     Map<String, dynamic> properties,
   ) {
+    final props = Map<String, dynamic>.from(properties);
+    final eventDevice = props.remove('DeviceIdentifier') as String?;
+    final resolvedDevice = (eventDevice != null && eventDevice.isNotEmpty)
+        ? eventDevice
+        : (deviceIdentifier ?? '');
+
     return {
-      ...properties,
+      ...props,
       '@t': timestamp,
       '@mt': messageTemplate,
       '@l': level,
-      'DeviceIdentifier': deviceIdentifier ?? '',
+      'DeviceIdentifier': resolvedDevice,
     };
   }
 

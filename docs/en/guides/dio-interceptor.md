@@ -39,17 +39,25 @@ All events go through your registered sinks — no direct HTTP from the intercep
 DioLoggingInterceptor(
   this._logger, {
   this.correlationalHeaderName = 'X-Request-Seq-Id',
+  this.deviceHeaderName = 'X-device-id',
 })
 ```
 
-- `correlationalHeaderName` must be non-empty (asserts otherwise).
-- `deviceIdentifier` lives on `SinkSeq`, not here.
+- `correlationalHeaderName` and `deviceHeaderName` must be non-empty.
+- Default `deviceIdentifier` lives on `SinkSeq`; when the request includes the `X-device-id` header (or the name set in `deviceHeaderName`), that value becomes the event `DeviceIdentifier`. Without the header, `SinkSeq.deviceIdentifier` is used.
 
-## Templates (example)
+## Templates and properties
 
-The emitted `@mt` values follow legacy semantics for easy querying:
+Message templates use `{property}` placeholders aligned with `StructureLogger` (not `{@property}`).
 
-- REQUEST: `REQUEST: {@method} {@path} ...`
-- RESPONSE / ERROR analogous.
+- REQUEST: `REQUEST: {method} {path} {correlationalSeqID} {headers}`
+- RESPONSE: `RESPONSE: {statusCode} {path} {correlationalSeqID} {headers} {elapsedTime}`
+- ERROR: `ERROR: {statusCode} {path} {correlationalSeqID} {message} {headers} {elapsedTime}`
 
-See the package source for exact templates and data keys (`event_type`, `elapsedTime`, etc.).
+Each request query parameter is emitted as a top-level `queryParam.<name>` property (e.g. `queryParam.page=1`), enabling filters in CLEF Viewer.
+
+JWT tokens in headers, query params, and bodies are obfuscated in logs (`eyJhbG...***`); original Dio request headers are not modified.
+
+Request/response bodies are **not** part of `@mt`; they are emitted as structured properties (`data`, `errorData`) for search and inspection in the viewer.
+
+See the package source for the full property map (`event_type`, `elapsedTime`, etc.).

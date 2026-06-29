@@ -1,3 +1,11 @@
+## 1.0.1-dev.3
+
+* Republish aligned with `v{{version}}` tag workflow.
+
+## 1.0.1-dev.2
+
+* `SinkSeq` accepts per-event `DeviceIdentifier` from `event.data`, falling back to the sink constructor value when absent or empty.
+
 ## 1.0.1-dev.0
 
  - **FIX**: adiciona LICENSE e README.md nos pacotes. ([8c52242c](https://github.com/Altamir/structured_logger/commit/8c52242cbe631a7d2b38f2d790015ff8ae391192))
