@@ -9,7 +9,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  structured_logger: ^1.0.1-dev.1
+  structured_logger: ^1.0.1-dev.2
   dio: ^5.1.1
   uuid: ^4.5.1
 

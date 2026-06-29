@@ -1,4 +1,4 @@
-## 1.0.1-dev.1
+## 1.0.1-dev.2
 
 * `SinkSeq` accepts per-event `DeviceIdentifier` from `event.data`, falling back to the sink constructor value when absent or empty.
 
