@@ -79,6 +79,28 @@ Map<String, dynamic> _queryParamProperties(Map<String, dynamic>? params) {
   return result;
 }
 
+/// Resolves query parameters from [RequestOptions.uri] (covers params embedded
+/// in [RequestOptions.path]) and merges explicit [RequestOptions.queryParameters]
+/// so typed map values take precedence.
+Map<String, dynamic> _resolveQueryParameters(RequestOptions options) {
+  final resolved = Map<String, dynamic>.from(options.uri.queryParameters);
+  resolved.addAll(options.queryParameters);
+  return resolved;
+}
+
+/// Returns the request path/URL without the query string for consistent logging.
+String _resolvePath(RequestOptions options) {
+  final uri = options.uri;
+  if (uri.hasScheme) {
+    return '${uri.origin}${uri.path}';
+  }
+  final pathWithoutQuery = options.path.split('?').first;
+  if (pathWithoutQuery.isNotEmpty) {
+    return pathWithoutQuery;
+  }
+  return uri.path;
+}
+
 String _stringOrEmpty(Object? value) => value?.toString() ?? '';
 
 String? _headerValue(Map<dynamic, dynamic> headers, String name) {
@@ -143,10 +165,10 @@ class DioLoggingInterceptor extends Interceptor {
         {
           'event_type': 'REQUEST',
           'method': options.method,
-          'path': options.path,
+          'path': _resolvePath(options),
           'correlationalSeqID': id,
           'data': _sanitize(options.data),
-          ..._queryParamProperties(options.queryParameters),
+          ..._queryParamProperties(_resolveQueryParameters(options)),
           'headers': _sanitize(options.headers),
         },
         options.headers,
@@ -173,7 +195,7 @@ class DioLoggingInterceptor extends Interceptor {
         {
           'event_type': 'RESPONSE',
           'statusCode': response.statusCode,
-          'path': response.requestOptions.path,
+          'path': _resolvePath(response.requestOptions),
           'correlationalSeqID': id,
           'data': _sanitize(response.data),
           'headers': _sanitize(
@@ -203,7 +225,7 @@ class DioLoggingInterceptor extends Interceptor {
         {
           'event_type': 'ON_ERROR',
           'statusCode': err.response?.statusCode ?? '',
-          'path': err.requestOptions.path,
+          'path': _resolvePath(err.requestOptions),
           'correlationalSeqID': id,
           'message': _stringOrEmpty(err.message),
           'errorData': _sanitize(err.response?.data),

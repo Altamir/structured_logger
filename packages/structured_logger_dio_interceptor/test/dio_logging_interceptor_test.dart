@@ -34,6 +34,26 @@ class _FailingAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+/// Adapter that captures [RequestOptions] and returns a minimal success body.
+class _CapturingAdapter implements HttpClientAdapter {
+  _CapturingAdapter(this.onFetch);
+
+  final void Function(RequestOptions options) onFetch;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    onFetch(options);
+    return ResponseBody.fromString('{}', 200);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 /// Adapter variant that throws DioException *with* response.statusCode for realistic onError path.
 /// (Minimal duplication of _FailingAdapter for test coverage; names kept simple.)
 class _FailingAdapterWithStatus implements HttpClientAdapter {
@@ -187,6 +207,79 @@ void main() {
       expect(data['queryParam.page'], 1);
       expect(data['queryParam.userId'], '42');
       expect(data.containsKey('queryParams'), isFalse);
+    });
+
+    test('extracts query parameters embedded in absolute URL path', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(
+        path:
+            'https://bff.example.com/api/product/v4/find-filtered-app?IdStore=3&text=tenis&StockType=3&pageSize=20&pageNumber=1',
+        method: 'GET',
+      );
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final data = sink.events.single.data!;
+      expect(data['path'],
+          'https://bff.example.com/api/product/v4/find-filtered-app');
+      expect(data['queryParam.IdStore'], '3');
+      expect(data['queryParam.text'], 'tenis');
+      expect(data['queryParam.StockType'], '3');
+      expect(data['queryParam.pageSize'], '20');
+      expect(data['queryParam.pageNumber'], '1');
+    });
+
+    test('extracts query parameters embedded in relative path', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(
+        path: '/api/foo?page=1&userId=42',
+        method: 'GET',
+      );
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final data = sink.events.single.data!;
+      expect(data['path'], '/api/foo');
+      expect(data['queryParam.page'], '1');
+      expect(data['queryParam.userId'], '42');
+    });
+
+    test('merges embedded path query with explicit queryParameters map', () {
+      final interceptor = DioLoggingInterceptor(logger);
+      final options = RequestOptions(
+        path: '/api/foo?fromPath=1',
+        method: 'GET',
+      );
+      options.queryParameters = {'page': 2};
+
+      interceptor.onRequest(options, RequestInterceptorHandler());
+
+      final data = sink.events.single.data!;
+      expect(data['path'], '/api/foo');
+      expect(data['queryParam.fromPath'], '1');
+      expect(data['queryParam.page'], 2);
+    });
+
+    test('dio.get with embedded query string emits queryParam.* via interceptor',
+        () async {
+      final interceptor = DioLoggingInterceptor(logger);
+      late RequestOptions captured;
+      final dio = Dio()
+        ..interceptors.add(interceptor)
+        ..httpClientAdapter = _CapturingAdapter((options) {
+          captured = options;
+        });
+
+      await dio.get('https://example.com/api/foo?a=1&b=two');
+      await Future<void>.delayed(Duration.zero);
+
+      final requestEvent = sink.events
+          .firstWhere((e) => e.data?['event_type'] == 'REQUEST');
+      final data = requestEvent.data!;
+      expect(data['path'], 'https://example.com/api/foo');
+      expect(data['queryParam.a'], '1');
+      expect(data['queryParam.b'], 'two');
+      expect(captured.queryParameters, isEmpty);
     });
 
     test('sanitizes invalid query param keys for property filter', () {
