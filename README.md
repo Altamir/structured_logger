@@ -114,7 +114,7 @@ The repository uses a **pre-release / master** flow. Everything runs in a single
 | PR open → `pre-release` | Tests + preview images (`-DEV-PR`) + preview docs |
 | PR open → `master` | Tests only |
 | **Merge** PR → `pre-release` | Dev version bump, tags, pub.dev prerelease, DEV images, docs |
-| **Merge** PR → `master` | Stable graduate, tags, pub.dev, `:latest` images, prod docs, version-bump PR |
+| **Merge** PR → `master` | Stable graduate, tags, pub.dev, sync `pre-release`, `:latest` images, prod docs, version-bump PR |
 | Push → `pre-release` or `master` | Tests only |
 
 ### Automated flow (preferred)
@@ -132,10 +132,19 @@ The repository uses a **pre-release / master** flow. Everything runs in a single
    - `melos version --yes --graduate` (or conventional stable) with `--no-git-tag-version`
    - Publishes stable versions to pub.dev (inline)
    - Pushes final `vX.Y.Z` tags
+   - **Syncs `pre-release`** with graduated versions (so the next dev cycle starts from stable, not stale `-dev` versions)
    - Opens a **follow-up PR** `chore/release-*` with pubspec bumps (because `master` blocks direct push)
 5. **Merge the version-bump PR** to sync `master` pubspecs.
    - Stable GitHub release per `v*` tag
    - Images with `:latest` + docs to CF `master`
+
+### Keeping `pre-release` in sync with `master`
+
+After a stable release, `stable-release` pushes the graduated commit to `pre-release` automatically. That way the next feature merge on `pre-release` bumps from the stable version (e.g. `1.0.2-dev.1`), not an old `-dev` counter.
+
+`master` pubspecs are updated separately when you merge the `chore/release-*` PR (required because `master` is protected). Until that merge, `pre-release` may show stable versions before `master` does — that is expected.
+
+**Requirement:** `pre-release` must allow push from `github-actions[bot]` (unprotected branch, or bypass for the bot).
 
 ### Protected `master` (no bypass required)
 

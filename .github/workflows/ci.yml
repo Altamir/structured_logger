@@ -5,7 +5,7 @@ name: CI
 #   PR open  → pre-release : test + preview images/docs
 #   PR open  → master      : test only
 #   PR merge → pre-release : dev version bump, tags, pub.dev prerelease, DEV images/docs
-#   PR merge → master      : stable graduate, tags, pub.dev, :latest images, prod docs, version-bump PR
+#   PR merge → master      : stable graduate, tags, pub.dev, sync pre-release, :latest images, prod docs, version-bump PR
 #   push     → pre-release | master : test only
 
 on:
@@ -294,6 +294,9 @@ jobs:
 
           echo "Opened version bump PR: ${PR_URL}"
           echo "version_pr_url=${PR_URL}" >> "${GITHUB_OUTPUT}"
+
+      - name: Sync graduated versions back to pre-release
+        run: git push origin HEAD:pre-release
 
       - name: Create GitHub Releases (stable)
         run: |
