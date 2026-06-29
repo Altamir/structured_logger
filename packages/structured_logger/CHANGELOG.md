@@ -1,3 +1,7 @@
+## 1.0.1-dev.5
+
+* Republish aligned with `v{{version}}` tag workflow.
+
 ## 1.0.1-dev.3
 
 * Republish aligned with `v{{version}}` tag workflow.
