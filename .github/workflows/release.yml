@@ -4,8 +4,7 @@ name: Release (DEV + Stable)
 # - Merged PR into develop → DEV pre-release (vX.Y.Z-dev.N, pre-release pub packages, DEV images/docs)
 # - Merged PR into master → stable release (graduate or final vX.Y.Z, full publish, :latest)
 #
-# stable-release requires RELEASE_PAT: a PAT from a user listed in master branch bypass rules
-# (GitHub Actions / github-actions[bot] is not available in bypass actor lists).
+# stable-release pushes version bumps via an auto-opened PR (master is protected; no bypass needed).
 
 on:
   pull_request:
@@ -17,6 +16,7 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: write
   id-token: write
   packages: write
   deployments: write
@@ -129,22 +129,12 @@ jobs:
       release_sha: ${{ steps.sha.outputs.sha }}
 
     steps:
-      - name: Ensure RELEASE_PAT is configured
-        env:
-          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
-        run: |
-          if [ -z "$RELEASE_PAT" ]; then
-            echo "::error::RELEASE_PAT is required for stable-release (master is protected)."
-            echo "Create a PAT for your GitHub user (listed in master bypass rules) and add it as repository secret RELEASE_PAT. See README."
-            exit 1
-          fi
-
       - name: Checkout (merge commit)
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Attach to base branch for melos
         run: git checkout -B ${{ github.event.pull_request.base.ref }}
@@ -194,12 +184,26 @@ jobs:
       - name: Create v{{version}} tags
         run: bash scripts/create_v_tags.sh
 
-      - name: Push version bumps and tags to master
+      - name: Push version bump branch, tags, and open PR to master
+        id: version_pr
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BRANCH: chore/release-${{ github.run_id }}
         run: |
-          git push origin "HEAD:master" --follow-tags
-          git push --tags
+          set -euo pipefail
+          git push origin "HEAD:${RELEASE_BRANCH}"
+          git push origin --tags
+
+          PR_URL=$(gh pr create \
+            --base master \
+            --head "${RELEASE_BRANCH}" \
+            --title "chore(release): version bump from workflow" \
+            --body "Automated stable version bump after merging PR #${{ github.event.pull_request.number }}.
+
+          Merge this PR to sync \`master\` pubspec versions. Tags and pub.dev publish already run from this commit.")
+
+          echo "Opened version bump PR: ${PR_URL}"
+          echo "version_pr_url=${PR_URL}" >> "${GITHUB_OUTPUT}"
 
       - name: Create GitHub Releases (stable)
         run: |
@@ -211,7 +215,7 @@ jobs:
               --title "$TAG"
           done
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Capture versioned commit sha
         id: sha

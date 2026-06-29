@@ -123,24 +123,19 @@ The repository uses a **develop / master** flow:
 4. On open → only tests + preview run.
 5. **Merge** → `release.yml` runs:
    - `melos version --yes --graduate` (or conventional stable) with `--no-git-tag-version`
-   - Pushes final `vX.Y.Z` tags only
+   - Pushes final `vX.Y.Z` tags (triggers `publish.yml` on pub.dev)
+   - Opens a **follow-up PR** `chore/release-*` with pubspec bumps (because `master` blocks direct push)
+6. **Merge the version-bump PR** (one click, same as any other PR) to sync `master` pubspecs.
    - Stable GitHub release per `v*` tag
-   - Publishes final packages
    - Updates images with `:latest` + docs to CF `master`
 
-### Prerequisites (protected `master` + `RELEASE_PAT`) — IMPORTANT
+### Protected `master` (no bypass required)
 
-`master` blocks direct push. The `stable-release` job pushes version bumps after `melos version`; that requires a **personal access token**, not `GITHUB_TOKEN`.
+`master` does not accept direct push from Actions. The workflow does **not** need a bypass list or `RELEASE_PAT`:
 
-GitHub bypass rules list **users, teams, or apps** — **`github-actions[bot]` is not listed**. Add **your GitHub user** (repo admin) to the bypass list, then:
-
-1. **Branch protection / ruleset for `master`** → *Bypass list* → add your user (e.g. `Altamir`).
-2. Create a **fine-grained PAT** (or classic) for that user with:
-   - Repository access: `structured_logger`
-   - Permissions: **Contents** (read/write), **Metadata** (read)
-3. Repo **Settings → Secrets and variables → Actions** → New secret: `RELEASE_PAT` = the PAT.
-
-`develop` releases keep using `GITHUB_TOKEN` (direct push). Only `stable-release` on `master` uses `RELEASE_PAT`.
+1. After your feature PR merges, `stable-release` graduates versions, pushes **tags**, and opens `chore/release-<run_id>` → `master`.
+2. You merge that small PR (pubspec/CHANGELOG only).
+3. pub.dev publish runs from **tag push**, without waiting for step 2.
 
 ### Prerequisites (pub.dev Automated publishing) — IMPORTANT
 
