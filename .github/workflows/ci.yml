@@ -5,8 +5,9 @@ name: CI
 #   PR open  → pre-release : test + preview images/docs
 #   PR open  → master      : test only
 #   PR merge → pre-release : dev version bump, tags (publish.yml on tag push), DEV images/docs
-#   PR merge → master      : stable graduate, tags (publish.yml on tag push), sync pre-release, :latest images, prod docs, version-bump PR
-#   push     → pre-release | master : test only
+#   PR merge → master (from pre-release only) : stable graduate, tags, sync pre-release, :latest images, prod docs, version-bump PR
+#   PR merge → master (chore/other)           : skipped (push to master runs test only)
+#   push     → pre-release | master           : test only
 
 on:
   pull_request:
@@ -196,7 +197,8 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'master'
+      github.event.pull_request.base.ref == 'master' &&
+      github.event.pull_request.head.ref == 'pre-release'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

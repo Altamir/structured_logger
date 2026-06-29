@@ -114,7 +114,8 @@ The repository uses a **pre-release / master** flow. Everything runs in a single
 | PR open → `pre-release` | Tests + preview images (`-DEV-PR`) + preview docs |
 | PR open → `master` | Tests only |
 | **Merge** PR → `pre-release` | Dev version bump, tags → [`publish.yml`](.github/workflows/publish.yml), DEV images, docs |
-| **Merge** PR → `master` | Stable graduate, tags → `publish.yml`, sync `pre-release`, `:latest` images, prod docs, version-bump PR |
+| **Merge** PR `pre-release` → `master` | Stable graduate, tags → `publish.yml`, sync `pre-release`, `:latest` images, prod docs, version-bump PR |
+| **Merge** PR `chore/release-*` → `master` | Tests only (sync pubspecs; does **not** re-run release) |
 | Push → `pre-release` or `master` | Tests only |
 
 ### Automated flow (preferred)
@@ -128,14 +129,14 @@ The repository uses a **pre-release / master** flow. Everything runs in a single
    - Creates GitHub **pre-release** per `v*` tag
    - Pushes DEV images (tags with `-DEV`, no `:latest`) + docs to CF `pre-release` branch
 3. When ready: open PR `pre-release` → `master` (tests only while open).
-4. **Merge** → `stable-release` job runs:
+4. **Merge the promotion PR** (`pre-release` → `master`) → `stable-release` job runs (other merges into `master`, including `chore/release-*`, do **not** trigger this):
    - `melos version --yes --graduate` (or conventional stable) with `--no-git-tag-version`
    - Pushes final `vX.Y.Z` tags → triggers `publish.yml` on pub.dev
    - **Syncs `pre-release`** with graduated versions (so the next dev cycle starts from stable, not stale `-dev` versions)
    - Opens a **follow-up PR** `chore/release-*` with pubspec bumps (because `master` blocks direct push)
-5. **Merge the version-bump PR** to sync `master` pubspecs.
-   - Stable GitHub release per `v*` tag
-   - Images with `:latest` + docs to CF `master`
+5. **Merge the `chore/release-*` PR** to sync `master` pubspecs (CI runs tests only — no new release, tags, or chore PR).
+   - Stable GitHub release per `v*` tag (already created in step 4)
+   - Images with `:latest` + docs to CF `master` (already deployed in step 4)
 
 ### Keeping `pre-release` in sync with `master`
 
