@@ -112,7 +112,7 @@ The repository uses a **develop / master** flow:
 ### Automated flow (preferred)
 
 1. Open PR → `develop` → CI runs tests + builds PR preview images/docs (`-DEV-PR`).
-2. **Approve** the PR → `release.yml` runs:
+2. **Merge** the PR → `release.yml` runs:
    - Full CI
    - `melos version --yes --prerelease --preid=DEV --no-git-tag-version`
    - Creates tags `vX.Y.Z-DEV.N` (one per versioned package; same commit may have multiple `v*` tags)
@@ -121,7 +121,7 @@ The repository uses a **develop / master** flow:
    - Pushes DEV images (tags with `-DEV`, no `:latest`) + docs to CF `develop` branch
 3. When ready: open PR `develop` → `master`.
 4. On open → only tests + preview run.
-5. **Approve** → `release.yml` runs:
+5. **Merge** → `release.yml` runs:
    - `melos version --yes --graduate` (or conventional stable) with `--no-git-tag-version`
    - Pushes final `vX.Y.Z` tags only
    - Stable GitHub release per `v*` tag
