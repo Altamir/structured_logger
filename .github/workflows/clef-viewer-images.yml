@@ -14,7 +14,7 @@ on:
         default: ''
         type: string
       is_dev:
-        description: 'Whether this is a develop pre-release build (DEV tags, no :latest)'
+        description: 'Whether this is a pre-release build (DEV tags, no :latest)'
         required: false
         default: 'false'
         type: string
@@ -70,7 +70,7 @@ jobs:
           if [[ "${{ inputs.is_pr }}" == "true" ]]; then
             echo "tags=${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.run_number }}-DEV-PR" >> $GITHUB_OUTPUT
           elif [[ "${{ inputs.is_dev }}" == "true" ]]; then
-            # DEV releases from develop (pre-release images, no :latest)
+            # DEV releases from pre-release (pre-release images, no :latest)
             echo "tags=${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.run_number }}-DEV,${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}-DEV" >> $GITHUB_OUTPUT
           else
             # Stable release / push to master

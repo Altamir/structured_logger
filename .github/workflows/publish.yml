@@ -1,14 +1,7 @@
 name: Publish to pub.dev
 
-# Official setup for pub.dev OIDC Trusted Publishing.
+# Manual releases only. Automated publishing runs inline in ci.yml (prerelease-release / stable-release).
 # See: https://dart.dev/tools/pub/automated-publishing
-#
-# pub.dev "Automated publishing" tag pattern (both packages):
-#   v{{version}}
-#
-# Tags are plain v<version> (e.g. v1.0.1-dev.2). A single commit may have
-# multiple v* tags when packages version independently in the monorepo.
-# The resolve-package job maps each tag to the package whose pubspec version matches.
 
 on:
   workflow_dispatch:
@@ -37,17 +30,12 @@ on:
         default: false
         type: boolean
 
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
-
 permissions:
   contents: write
   id-token: write
 
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -115,6 +103,15 @@ jobs:
       - name: Create v{{version}} tags
         run: bash scripts/create_v_tags.sh
 
+      - name: Publish to pub.dev (core first)
+        run: |
+          if [ "${{ inputs.package }}" = "all" ] || [ "${{ inputs.package }}" = "structured_logger" ]; then
+            dart pub publish --directory packages/structured_logger --force
+          fi
+          if [ "${{ inputs.package }}" = "all" ] || [ "${{ inputs.package }}" = "structured_logger_dio_interceptor" ]; then
+            dart pub publish --directory packages/structured_logger_dio_interceptor --force
+          fi
+
       - name: Push version bumps and tags
         run: |
           git push --follow-tags
@@ -137,35 +134,3 @@ jobs:
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  resolve-package:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    outputs:
-      working_directory: ${{ steps.resolve.outputs.working_directory }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Resolve package from tag version
-        id: resolve
-        run: |
-          VER="${GITHUB_REF_NAME#v}"
-          for dir in packages/structured_logger packages/structured_logger_dio_interceptor; do
-            PKG_VER=$(grep '^version:' "$dir/pubspec.yaml" | awk '{print $2}')
-            if [ "$PKG_VER" = "$VER" ]; then
-              echo "working_directory=$dir" >> $GITHUB_OUTPUT
-              echo "Publishing $dir at version $VER"
-              exit 0
-            fi
-          done
-          echo "No package matches tag version $VER" >&2
-          exit 1
-
-  publish:
-    needs: resolve-package
-    permissions:
-      id-token: write
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
-    with:
-      working-directory: ${{ needs.resolve-package.outputs.working_directory }}
