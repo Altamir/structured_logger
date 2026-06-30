@@ -51,8 +51,12 @@ _Avoid_: device, client id
 ### Filtering
 
 **Property Filter**:
-Filtro no formato `chave=valor` aplicado via `json_extract` sobre `properties`.
-_Avoid_: property query, k=v filter
+Filtro no formato `chave=valor` aplicado via `json_extract` sobre `properties`; na UI, aplicado apenas por clique em chip de log (sem campo de texto dedicado).
+_Avoid_: property query, k=v filter, campo Property na FilterBar
+
+**Search**:
+Busca textual livre nos Log Events, respeitando o intervalo de tempo ativo; cobre Message Template, Rendered Message, exception, JSON de properties e Device Identifier.
+_Avoid_: full-text search (ok em código), campo Property na FilterBar
 
 **Empty Sentinel** (`__empty__`):
 Valor interno do filtro para representar device ou property ausente/null; exibido ao usuário como `(empty)`.
@@ -61,6 +65,10 @@ _Avoid_: empty value, null filter
 **Active Filter Chip**:
 Indicador removível na FilterBar para um critério de filtro ativo (`levels`, `device_id`, `property`, `search`); `from`/`to` não viram chip.
 _Avoid_: filter badge, filter tag
+
+**Clear Filters**:
+Ação na FilterBar que remove todos os critérios ativos — Search, Device Identifier, Property Filters e intervalo de tempo — restaurando o Viewer ao estado live sem filtros.
+_Avoid_: reset search, limpar busca
 
 ## Relationships
 
@@ -71,6 +79,10 @@ _Avoid_: filter badge, filter tag
 - O **Display Message** deriva do **Rendered Message** ou do **Message Template** + **Properties**
 - Um **Log Event** tem no máximo um **Device Identifier**
 - Um **Property Filter** referencia uma **Property** por chave e valor exato
+- **Search** e **Property Filter** são mecanismos distintos: Search é texto livre; Property Filter é match exato via chip
+- **Search** aplica com debounce e reload silencioso (sem spinner full-page); indicador discreto no campo durante a busca
+- **Search** é local ao Viewer; export/delete filtrados na Admin usam levels, Device Identifier, Property Filters e intervalo de tempo — não o texto de Search
+- O intervalo de tempo ativo no Viewer é propagado para operações filtradas na Admin (export/delete)
 
 ## Example dialogue
 
@@ -81,3 +93,6 @@ _Avoid_: filter badge, filter tag
 
 - "mensagem renderizada" no requisito original misturava **Rendered Message** (`@m`) e **Display Message** — resolvido: Display Message é o termo canônico para o card.
 - Versão do **Structured Logger** na migração Dart puro: **1.0.0** — marco de estabilidade Dart-first; API pública inalterada.
+- Campo "Property" na FilterBar vs **Property Filter** via chip — resolvido: remover campo de texto; Property Filter só por clique em chip.
+- **Search** na FilterBar vs campo Property — resolvido: Search unificado (escopo A); Property Filter só por chip.
+- Time window no Viewer vs Admin filtered — resolvido: intervalo de tempo propagado para export/delete filtrados na Admin.

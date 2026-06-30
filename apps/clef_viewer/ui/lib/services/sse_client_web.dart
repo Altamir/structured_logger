@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../config/api_config.dart';
 import '../models/log_entry.dart';
+import 'auth_service.dart';
 
 /// Browser SSE client — uses [html.EventSource] (required for Flutter Web).
 class SseClient {
@@ -114,9 +115,15 @@ class SseClient {
   }
 
   String _streamUrl() {
-    final path = ApiConfig.uri('/api/events/stream');
+    final token = AuthService.getToken();
+    final path = ApiConfig.uri(
+      '/api/events/stream',
+      queryParameters:
+          token == null || token.isEmpty ? null : {'access_token': token},
+    );
     if (ApiConfig.isSameOrigin) {
-      return '${html.window.location.origin}${path.path}';
+      final query = path.query.isEmpty ? '' : '?${path.query}';
+      return '${html.window.location.origin}${path.path}$query';
     }
     return path.toString();
   }

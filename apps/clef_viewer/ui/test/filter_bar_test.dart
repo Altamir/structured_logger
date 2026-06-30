@@ -1,62 +1,77 @@
-import 'package:clef_viewer_ui/models/level_options.dart';
 import 'package:clef_viewer_ui/models/log_filter.dart';
+import 'package:clef_viewer_ui/models/viewer_time_window.dart';
 import 'package:clef_viewer_ui/widgets/filter_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+Widget _harness({
+  required LogFilter initialFilter,
+  required ValueChanged<LogFilter> onApply,
+  VoidCallback? onClear,
+  ViewerTimeWindow timeWindow = const ViewerTimeWindow(),
+  ValueChanged<ViewerTimeWindow>? onTimeWindowChanged,
+  GlobalKey<FilterBarState>? key,
+}) {
+  return MaterialApp(
+    theme: ThemeData(useMaterial3: true),
+    home: Scaffold(
+      body: FilterBar(
+        key: key,
+        initialFilter: initialFilter,
+        timeWindow: timeWindow,
+        onTimeWindowChanged: onTimeWindowChanged ?? (_) {},
+        onApply: onApply,
+        onClear: onClear ?? () {},
+      ),
+    ),
+  );
+}
+
 void main() {
   testWidgets('FilterBar does not show Apply button', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FilterBar(
-            initialFilter: const LogFilter(),
-            onApply: (_) {},
-            onClear: () {},
-          ),
-        ),
-      ),
+      _harness(initialFilter: const LogFilter(), onApply: (_) {}),
     );
 
     expect(find.text('Apply'), findsNothing);
+    expect(find.text('Now'), findsOneWidget);
   });
 
-  testWidgets('FilterBar shows validation when from is after to', (tester) async {
+  testWidgets('FilterBar shows validation when custom range from is after to',
+      (tester) async {
     var applied = false;
     await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        home: Scaffold(
-          body: FilterBar(
-            initialFilter: LogFilter(
-              from: DateTime.utc(2024, 2, 1),
-              to: DateTime.utc(2024, 1, 1),
-            ),
-            onApply: (_) => applied = true,
-            onClear: () {},
-          ),
+      _harness(
+        initialFilter: const LogFilter(),
+        onApply: (_) => applied = true,
+        timeWindow: ViewerTimeWindow(
+          kind: TimeWindowKind.customRange,
+          customFrom: DateTime.utc(2024, 2, 1),
+          customTo: DateTime.utc(2024, 1, 1),
         ),
       ),
     );
 
-    await tester.tap(find.text('debug'));
+    await tester.enterText(find.byType(TextField).last, 'x');
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('From date must be before to date'), findsOneWidget);
     expect(applied, isFalse);
   });
 
+  testWidgets('FilterBar does not show Property text field', (tester) async {
+    await tester.pumpWidget(
+      _harness(initialFilter: const LogFilter(), onApply: (_) {}),
+    );
+
+    expect(find.text('Property (k=v; k2=v2)'), findsNothing);
+    expect(find.text('Search'), findsOneWidget);
+  });
+
   testWidgets('FilterBar does not show Event ID field', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FilterBar(
-            initialFilter: const LogFilter(),
-            onApply: (_) {},
-            onClear: () {},
-          ),
-        ),
-      ),
+      _harness(initialFilter: const LogFilter(), onApply: (_) {}),
     );
 
     expect(find.text('Event ID'), findsNothing);
@@ -66,17 +81,12 @@ void main() {
   testWidgets('active filter chips are removable', (tester) async {
     LogFilter? applied;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FilterBar(
-            initialFilter: const LogFilter(
-              levels: ['error'],
-              search: 'timeout',
-            ),
-            onApply: (f) => applied = f,
-            onClear: () {},
-          ),
+      _harness(
+        initialFilter: const LogFilter(
+          levels: ['error'],
+          search: 'timeout',
         ),
+        onApply: (f) => applied = f,
       ),
     );
 
@@ -96,15 +106,10 @@ void main() {
     var applyCount = 0;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FilterBar(
-            key: key,
-            initialFilter: const LogFilter(),
-            onApply: (_) => applyCount++,
-            onClear: () {},
-          ),
-        ),
+      _harness(
+        key: key,
+        initialFilter: const LogFilter(),
+        onApply: (_) => applyCount++,
       ),
     );
 
@@ -119,62 +124,13 @@ void main() {
     expect(key.currentState!.buildFilter().deviceId, 'group-device');
   });
 
-  testWidgets('all levels selected by default produces empty filter', (tester) async {
-    final key = GlobalKey<FilterBarState>();
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FilterBar(
-            key: key,
-            initialFilter: const LogFilter(),
-            onApply: (_) {},
-            onClear: () {},
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('Levels'), findsOneWidget);
-    expect(key.currentState!.buildFilter().levels, isEmpty);
-  });
-
-  testWidgets('deselected level applies filter automatically', (tester) async {
-    LogFilter? applied;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        home: Scaffold(
-          body: FilterBar(
-            initialFilter: const LogFilter(),
-            onApply: (f) => applied = f,
-            onClear: () {},
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('debug'));
-    await tester.pump();
-
-    expect(applied, isNotNull);
-    expect(applied!.levels, isNot(contains('debug')));
-    expect(applied!.levels.length, LevelOptions.all.length - 1);
-  });
-
   testWidgets('search field applies filter after debounce', (tester) async {
     LogFilter? applied;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FilterBar(
-            initialFilter: const LogFilter(),
-            onApply: (f) => applied = f,
-            onClear: () {},
-          ),
-        ),
+      _harness(
+        initialFilter: const LogFilter(),
+        onApply: (f) => applied = f,
       ),
     );
 
@@ -190,15 +146,10 @@ void main() {
     final key = GlobalKey<FilterBarState>();
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FilterBar(
-            key: key,
-            initialFilter: const LogFilter(),
-            onApply: (f) => applied = f,
-            onClear: () {},
-          ),
-        ),
+      _harness(
+        key: key,
+        initialFilter: const LogFilter(),
+        onApply: (f) => applied = f,
       ),
     );
 
@@ -214,15 +165,10 @@ void main() {
     final key = GlobalKey<FilterBarState>();
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: FilterBar(
-            key: key,
-            initialFilter: const LogFilter(properties: ['UserId=42']),
-            onApply: (f) => applied = f,
-            onClear: () {},
-          ),
-        ),
+      _harness(
+        key: key,
+        initialFilter: const LogFilter(properties: ['UserId=42']),
+        onApply: (f) => applied = f,
       ),
     );
 

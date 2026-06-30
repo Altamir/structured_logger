@@ -68,10 +68,12 @@ abstract final class ClefDs {
   static InputDecoration inputDecoration({
     required BuildContext context,
     required String label,
+    String? hintText,
     Widget? suffixIcon,
   }) {
     return InputDecoration(
       labelText: label,
+      hintText: hintText,
       isDense: true,
       filled: true,
       fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,

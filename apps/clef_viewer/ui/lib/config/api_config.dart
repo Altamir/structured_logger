@@ -24,6 +24,7 @@ class ApiConfig {
   );
 
   static const String adminKeyStorageKey = 'clef_viewer_admin_key';
+  static const String sessionTokenStorageKey = 'clef_viewer_session_token';
 
   /// Builds an API URI. Empty [baseUrl] yields a path-only URI (same origin).
   static Uri uri(String path, {Map<String, String>? queryParameters}) {

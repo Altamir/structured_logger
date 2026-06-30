@@ -160,5 +160,33 @@ void main() {
 
       expect(filter.matches(entry), isTrue);
     });
+
+    test('search matches properties JSON and device_id', () {
+      const filter = LogFilter(search: 'home');
+      const byProperty = LogEntry(
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        properties: {'Screen': 'Home'},
+      );
+      const byDevice = LogEntry(
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        deviceId: 'device-home-1',
+      );
+      const noMatch = LogEntry(
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        messageTemplate: 'other',
+      );
+
+      expect(filter.matches(byProperty), isTrue);
+      expect(filter.matches(byDevice), isTrue);
+      expect(filter.matches(noMatch), isFalse);
+
+      final (where, params) = filter.toSql();
+      expect(where, contains('LOWER(properties) LIKE ?'));
+      expect(where, contains('LOWER(device_id) LIKE ?'));
+      expect(params, everyElement('%home%'));
+    });
   });
 }

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/log_entry.dart';
+import 'auth_service.dart';
 
 /// SSE client with exponential backoff reconnect (1s → 30s cap).
 class SseClient {
@@ -59,6 +60,7 @@ class SseClient {
     final uri = ApiConfig.uri('/api/events/stream');
     final request = http.Request('GET', uri);
     request.headers['Accept'] = 'text/event-stream';
+    request.headers.addAll(AuthService.authHeaders());
 
     try {
       final response = await _client!.send(request);

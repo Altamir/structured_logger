@@ -19,7 +19,7 @@ class LogModel {
     this.data,
     this.t = "",
   }) {
-    if (t.isEmpty) t = DateTime.now().toIso8601String();
+    if (t.isEmpty) t = DateTime.now().toUtc().toIso8601String();
   }
 
   /// Serializes this event to a map with CLEF-style keys.

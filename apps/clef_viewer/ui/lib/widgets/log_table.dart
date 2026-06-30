@@ -7,14 +7,26 @@ import 'log_row.dart';
 class LogTable extends StatelessWidget {
   final List<LogEntry> events;
   final int total;
+  final int? displayCap;
   final ValueChanged<String>? onPropertyFilter;
 
   const LogTable({
     super.key,
     required this.events,
     required this.total,
+    this.displayCap,
     this.onPropertyFilter,
   });
+
+  String _countLabel() {
+    if (displayCap != null && total > displayCap!) {
+      return '${events.length} / $total';
+    }
+    return '$total';
+  }
+
+  bool _showCapHint() =>
+      displayCap != null && total > displayCap!;
 
   @override
   Widget build(BuildContext context) {
@@ -50,12 +62,22 @@ class LogTable extends StatelessWidget {
                     borderRadius: BorderRadius.circular(ClefDs.radiusPill),
                   ),
                   child: Text(
-                    '$total',
+                    _countLabel(),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                   ),
                 ),
+                if (_showCapHint())
+                  Padding(
+                    padding: const EdgeInsets.only(left: ClefDs.spaceSm),
+                    child: Text(
+                      'mostrando até $displayCap',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: ClefDs.appleTextSecondary,
+                          ),
+                    ),
+                  ),
               ],
             ),
           ),
