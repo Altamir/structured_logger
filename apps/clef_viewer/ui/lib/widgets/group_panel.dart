@@ -193,7 +193,8 @@ class _GroupPanelState extends State<GroupPanel> {
                       controller: _propertyController,
                       decoration: ClefDs.inputDecoration(
                         context: context,
-                        label: 'Property',
+                        label: 'Group key',
+                        hintText: 'e.g. Screen',
                         suffixIcon: IconButton(
                           icon: const Icon(Icons.check_rounded, size: 18),
                           onPressed: _applyPropertyName,

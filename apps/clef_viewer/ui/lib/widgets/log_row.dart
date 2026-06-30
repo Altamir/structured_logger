@@ -29,7 +29,6 @@ class LogRow extends StatefulWidget {
 
 class _LogRowState extends State<LogRow> {
   bool _expanded = false;
-  bool _hovering = false;
 
   Future<void> _copyLog() async {
     final text = LogCopyFormatter.format(widget.entry);
@@ -94,10 +93,7 @@ class _LogRowState extends State<LogRow> {
     return Card(
       elevation: 0,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovering = true),
-        onExit: (_) => setState(() => _hovering = false),
-        child: InkWell(
+      child: InkWell(
           onTap: () => setState(() => _expanded = !_expanded),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -118,16 +114,15 @@ class _LogRowState extends State<LogRow> {
                             _expanded ? null : TextOverflow.ellipsis,
                       ),
                     ),
-                    if (_hovering || _expanded)
-                      Semantics(
-                        label: 'Copiar log',
-                        button: true,
-                        child: IconButton(
-                          icon: const Icon(Icons.copy, size: 18),
-                          tooltip: 'Copiar log',
-                          onPressed: _copyLog,
-                        ),
+                    Semantics(
+                      label: 'Copiar log',
+                      button: true,
+                      child: IconButton(
+                        icon: const Icon(Icons.copy, size: 18),
+                        tooltip: 'Copiar log',
+                        onPressed: _copyLog,
                       ),
+                    ),
                     Icon(_expanded ? Icons.expand_less : Icons.expand_more),
                   ],
                 ),
@@ -198,7 +193,6 @@ class _LogRowState extends State<LogRow> {
             ),
           ),
         ),
-      ),
     );
   }
 }

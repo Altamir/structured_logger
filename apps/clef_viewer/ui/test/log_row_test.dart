@@ -1,6 +1,5 @@
 import 'package:clef_viewer_ui/models/log_entry.dart';
 import 'package:clef_viewer_ui/widgets/log_row.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,20 +11,12 @@ void main() {
     properties: {'name': 'Alice', 'UserId': 42},
   );
 
-  testWidgets('copy button visible on hover when collapsed', (tester) async {
+  testWidgets('copy button always visible when collapsed', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(body: LogRow(entry: entry)),
       ),
     );
-
-    expect(find.byIcon(Icons.copy), findsNothing);
-
-    final center = tester.getCenter(find.byType(Card));
-    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await gesture.addPointer(location: center);
-    await gesture.moveTo(center);
-    await tester.pump();
 
     expect(find.byIcon(Icons.copy), findsOneWidget);
     expect(find.byIcon(Icons.expand_more), findsOneWidget);
@@ -37,12 +28,6 @@ void main() {
         home: Scaffold(body: LogRow(entry: entry)),
       ),
     );
-
-    final center = tester.getCenter(find.byType(Card));
-    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await gesture.addPointer(location: center);
-    await gesture.moveTo(center);
-    await tester.pump();
 
     await tester.tap(find.byIcon(Icons.copy));
     await tester.pump();
@@ -57,9 +42,9 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.copy), findsNothing);
+    expect(find.byIcon(Icons.copy), findsOneWidget);
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byIcon(Icons.expand_more));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.copy), findsOneWidget);
@@ -72,7 +57,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byIcon(Icons.expand_more));
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.expand_less), findsOneWidget);
 
@@ -96,7 +81,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byIcon(Icons.expand_more));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('UserId: 42'));
@@ -119,7 +104,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byIcon(Icons.expand_more));
     await tester.pumpAndSettle();
 
     expect(find.text('Payload'), findsOneWidget);
@@ -133,7 +118,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byIcon(Icons.expand_more));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Ver log completo'));
@@ -150,7 +135,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byIcon(Icons.expand_more));
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.expand_less), findsOneWidget);
 
