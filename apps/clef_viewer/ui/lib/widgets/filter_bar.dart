@@ -15,6 +15,7 @@ import 'time_window_selector.dart';
 
 class FilterBar extends StatefulWidget {
   final LogFilter initialFilter;
+  final String initialSearch;
   final ViewerTimeWindow timeWindow;
   final ValueChanged<ViewerTimeWindow> onTimeWindowChanged;
   final ValueChanged<LogFilter> onApply;
@@ -24,6 +25,7 @@ class FilterBar extends StatefulWidget {
   const FilterBar({
     super.key,
     required this.initialFilter,
+    this.initialSearch = '',
     required this.timeWindow,
     required this.onTimeWindowChanged,
     required this.onApply,
@@ -36,13 +38,13 @@ class FilterBar extends StatefulWidget {
 }
 
 class FilterBarState extends State<FilterBar> {
-  static const _textDebounce = Duration(milliseconds: 450);
+  static const _textDebounce = Duration(milliseconds: 400);
 
   late final TextEditingController _deviceController;
-  late final TextEditingController _propertyController;
   late final TextEditingController _searchController;
   String? _validationError;
   LogFilter _appliedFilter = const LogFilter();
+  bool _searchLoading = false;
   Timer? _debounceTimer;
 
   @override
@@ -52,18 +54,16 @@ class FilterBarState extends State<FilterBar> {
     _deviceController = TextEditingController(
       text: _deviceIdToDisplay(widget.initialFilter.deviceId),
     );
-    _propertyController = TextEditingController(
-      text: PropertyFilterCodec.encodeField(widget.initialFilter.properties),
-    );
     _searchController = TextEditingController(
-      text: widget.initialFilter.search ?? '',
+      text: widget.initialSearch.isNotEmpty
+          ? widget.initialSearch
+          : (widget.initialFilter.search ?? ''),
     );
 
     if (widget.deviceCache == null) {
-      _deviceController.addListener(_scheduleDebouncedApply);
+      _deviceController.addListener(_scheduleDeviceDebounce);
     }
-    _propertyController.addListener(_scheduleDebouncedApply);
-    _searchController.addListener(_scheduleDebouncedApply);
+    _searchController.addListener(_scheduleSearchDebounce);
   }
 
   @override
@@ -73,7 +73,14 @@ class FilterBarState extends State<FilterBar> {
       setState(() {
         _appliedFilter = _appliedFilter.copyWith(
           levels: widget.initialFilter.levels,
+          deviceId: widget.initialFilter.deviceId,
+          properties: widget.initialFilter.properties,
         );
+        if (_deviceIdToDisplay(widget.initialFilter.deviceId) !=
+            _deviceController.text) {
+          _deviceController.text =
+              _deviceIdToDisplay(widget.initialFilter.deviceId);
+        }
       });
     }
     if (oldWidget.timeWindow != widget.timeWindow) {
@@ -85,12 +92,20 @@ class FilterBarState extends State<FilterBar> {
   void dispose() {
     _debounceTimer?.cancel();
     _deviceController.dispose();
-    _propertyController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _scheduleDebouncedApply() {
+  void _scheduleSearchDebounce() {
+    setState(() => _searchLoading = true);
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_textDebounce, () {
+      apply();
+      if (mounted) setState(() => _searchLoading = false);
+    });
+  }
+
+  void _scheduleDeviceDebounce() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(_textDebounce, apply);
   }
@@ -99,7 +114,7 @@ class FilterBarState extends State<FilterBar> {
     return LogFilter(
       levels: widget.initialFilter.levels,
       deviceId: _deviceIdFromController(),
-      properties: PropertyFilterCodec.parseField(_propertyController.text),
+      properties: _appliedFilter.properties,
       search: _emptyToNull(_searchController.text),
     );
   }
@@ -118,36 +133,53 @@ class FilterBarState extends State<FilterBar> {
 
   void applyPropertyFilter(String propertyParam) {
     final merged = PropertyFilterCodec.upsert(
-      PropertyFilterCodec.parseField(_propertyController.text),
+      _appliedFilter.properties,
       propertyParam,
     );
-    _propertyController.text = PropertyFilterCodec.encodeField(merged);
+    setState(() {
+      _appliedFilter = _appliedFilter.copyWith(properties: merged);
+    });
     apply();
   }
 
   /// Syncs controllers and active chips from an externally applied filter.
-  void applyExternalFilter(LogFilter filter, {ViewerTimeWindow? timeWindow}) {
-    _syncControllersFromFilter(filter);
-    if (timeWindow != null) {
-      widget.onTimeWindowChanged(timeWindow);
-    }
+  void applyExternalFilter(
+    LogFilter filter, {
+    ViewerTimeWindow? timeWindow,
+    bool preserveSearch = false,
+    bool clearSearch = false,
+  }) {
+    _syncFromFilter(
+      filter,
+      timeWindow: timeWindow,
+      preserveSearch: preserveSearch,
+      clearSearch: clearSearch,
+    );
   }
 
   String? get validationError => _validationError;
 
-  void _syncControllersFromFilter(LogFilter filter, {bool notify = true}) {
+  void _syncFromFilter(
+    LogFilter filter, {
+    ViewerTimeWindow? timeWindow,
+    bool preserveSearch = false,
+    bool clearSearch = false,
+  }) {
     void update() {
       _deviceController.text = _deviceIdToDisplay(filter.deviceId);
-      _propertyController.text = PropertyFilterCodec.encodeField(filter.properties);
-      _searchController.text = filter.search ?? '';
+      if (clearSearch) {
+        _searchController.clear();
+      } else if (!preserveSearch) {
+        _searchController.text = filter.search ?? '';
+      }
       _validationError = null;
-      _appliedFilter = filter;
+      _appliedFilter = filter.copyWith(search: null);
+      _searchLoading = false;
     }
 
-    if (notify) {
-      setState(update);
-    } else {
-      update();
+    setState(update);
+    if (timeWindow != null) {
+      widget.onTimeWindowChanged(timeWindow);
     }
   }
 
@@ -174,8 +206,15 @@ class FilterBarState extends State<FilterBar> {
   }
 
   void _onActiveChipRemove(LogFilter updated) {
-    _syncControllersFromFilter(updated);
-    widget.onApply(updated);
+    final clearSearch =
+        (updated.search == null || updated.search!.isEmpty) &&
+            _searchController.text.isNotEmpty;
+    _syncFromFilter(
+      updated,
+      preserveSearch: !clearSearch,
+      clearSearch: clearSearch,
+    );
+    widget.onApply(updated.copyWith(search: _emptyToNull(_searchController.text)));
   }
 
   void _onTimeWindowChanged(ViewerTimeWindow window) {
@@ -186,10 +225,10 @@ class FilterBarState extends State<FilterBar> {
   void _resetToDefaults() {
     setState(() {
       _deviceController.clear();
-      _propertyController.clear();
       _searchController.clear();
       _validationError = null;
       _appliedFilter = const LogFilter();
+      _searchLoading = false;
     });
     widget.onClear();
   }
@@ -197,7 +236,7 @@ class FilterBarState extends State<FilterBar> {
   @override
   Widget build(BuildContext context) {
     final activeChips = ActiveFilterChipFactory.fromFilter(
-      _appliedFilter,
+      _appliedFilter.copyWith(search: _emptyToNull(_searchController.text)),
       widget.timeWindow,
       _onActiveChipRemove,
       onClearTimeWindow: () {
@@ -251,22 +290,23 @@ class FilterBarState extends State<FilterBar> {
                   ),
                 ),
               SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: _propertyController,
-                  decoration: ClefDs.inputDecoration(
-                    context: context,
-                    label: 'Property (k=v; k2=v2)',
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 200,
+                width: 260,
                 child: TextField(
                   controller: _searchController,
                   decoration: ClefDs.inputDecoration(
                     context: context,
                     label: 'Search',
+                    hintText: 'Message, properties, device…',
+                    suffixIcon: _searchLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
                   ),
                 ),
               ),

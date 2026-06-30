@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../config/viewer_config.dart';
@@ -38,6 +39,7 @@ class ViewerPageState extends State<ViewerPage> {
   StreamSubscription<LogEntry>? _sseSub;
 
   LogFilter _filter = const LogFilter();
+  String _search = '';
   ViewerTimeWindow _timeWindow = const ViewerTimeWindow();
   List<LogEntry> _events = [];
   int _total = 0;
@@ -55,6 +57,7 @@ class ViewerPageState extends State<ViewerPage> {
   void initState() {
     super.initState();
     _filter = _stripTime(widget.sharedFilter);
+    _timeWindow = _timeWindowFromShared(widget.sharedFilter);
     _deviceCache = DeviceSuggestionCache(api: _api);
     _deviceCache.load();
     _sse = SseClient()..onReconnect = _onSseReconnect;
@@ -66,10 +69,15 @@ class ViewerPageState extends State<ViewerPage> {
   @override
   void didUpdateWidget(ViewerPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.sharedFilter != widget.sharedFilter) {
+    if (_sharedFilterChanged(oldWidget.sharedFilter, widget.sharedFilter)) {
       _filter = _stripTime(widget.sharedFilter);
-      _filterBarKey.currentState?.applyExternalFilter(_filter);
-      _loadInitial();
+      _timeWindow = _timeWindowFromShared(widget.sharedFilter);
+      _filterBarKey.currentState?.applyExternalFilter(
+        _filter,
+        timeWindow: _timeWindow,
+        preserveSearch: true,
+      );
+      _loadInitial(silent: true);
       _loadGroups();
     }
   }
@@ -84,8 +92,44 @@ class ViewerPageState extends State<ViewerPage> {
 
   LogFilter _stripTime(LogFilter f) => f.copyWith(from: null, to: null);
 
-  LogFilter _effectiveFilter() =>
-      _timeWindow.applyTo(_filter, DateTime.now());
+  ViewerTimeWindow _timeWindowFromShared(LogFilter shared) {
+    if (shared.from != null || shared.to != null) {
+      return ViewerTimeWindow(
+        kind: TimeWindowKind.customRange,
+        customFrom: shared.from,
+        customTo: shared.to,
+        liveSteady: _timeWindow.liveSteady,
+      );
+    }
+    return ViewerTimeWindow(liveSteady: _timeWindow.liveSteady);
+  }
+
+  LogFilter _effectiveFilter() {
+    final base = _filter.copyWith(
+      search: _search.trim().isEmpty ? null : _search.trim(),
+    );
+    return _timeWindow.applyTo(base, DateTime.now());
+  }
+
+  LogFilter _sharedSnapshot() => _effectiveFilter().copyWith(search: null);
+
+  bool _sharedFilterChanged(LogFilter old, LogFilter neu) {
+    return !listEquals(old.levels, neu.levels) ||
+        old.deviceId != neu.deviceId ||
+        !listEquals(old.properties, neu.properties) ||
+        old.from != neu.from ||
+        old.to != neu.to;
+  }
+
+  bool _structuralFilterChanged(LogFilter old, LogFilter neu) {
+    return !listEquals(old.levels, neu.levels) ||
+        old.deviceId != neu.deviceId ||
+        !listEquals(old.properties, neu.properties);
+  }
+
+  void _publishSharedFilter() {
+    widget.onFilterChanged(_sharedSnapshot());
+  }
 
   void _startPolling() {
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
@@ -192,30 +236,49 @@ class ViewerPageState extends State<ViewerPage> {
   }
 
   void _applyFilter(LogFilter filter) {
-    setState(() => _filter = _stripTime(filter));
-    widget.onFilterChanged(_filter);
-    _loadInitial();
+    final structural = _stripTime(filter.copyWith(search: null));
+    final structureChanged = _structuralFilterChanged(_filter, structural);
+
+    setState(() {
+      _search = filter.search ?? '';
+      _filter = structural;
+    });
+
+    if (structureChanged) {
+      _publishSharedFilter();
+    }
+    _loadInitial(silent: true);
+    _loadGroups();
   }
 
   void _onTimeWindowChanged(ViewerTimeWindow window) {
     setState(() => _timeWindow = window);
-    _loadInitial();
+    _publishSharedFilter();
+    _loadInitial(silent: true);
+    _loadGroups();
   }
 
   void _onLevelsChanged(Set<String> levels) {
     final filter = _filter.copyWith(
       levels: LevelOptions.filterFromUiSelection(levels),
     );
-    _applyFilter(filter);
+    _applyFilter(filter.copyWith(search: _search.isEmpty ? null : _search));
   }
 
   void _onClear() {
     setState(() {
       _filter = const LogFilter();
+      _search = '';
       _timeWindow = const ViewerTimeWindow();
     });
-    widget.onFilterChanged(_filter);
-    _loadInitial();
+    _filterBarKey.currentState?.applyExternalFilter(
+      const LogFilter(),
+      timeWindow: const ViewerTimeWindow(),
+      clearSearch: true,
+    );
+    _publishSharedFilter();
+    _loadInitial(silent: true);
+    _loadGroups();
   }
 
   void _onGroupSelected(String key) {
@@ -236,16 +299,20 @@ class ViewerPageState extends State<ViewerPage> {
         );
         _filter = _stripTime(newFilter);
       });
-      widget.onFilterChanged(_filter);
       _filterBarKey.currentState?.applyExternalFilter(
         _filter,
         timeWindow: _timeWindow,
+        preserveSearch: true,
       );
-      _loadInitial();
+      _publishSharedFilter();
+      _loadInitial(silent: true);
+      _loadGroups();
       return;
     }
 
-    _applyFilter(newFilter);
+    _applyFilter(
+      newFilter.copyWith(search: _search.isEmpty ? null : _search),
+    );
   }
 
   @override
@@ -257,6 +324,7 @@ class ViewerPageState extends State<ViewerPage> {
         FilterBar(
           key: _filterBarKey,
           initialFilter: _filter,
+          initialSearch: _search,
           timeWindow: _timeWindow,
           onTimeWindowChanged: _onTimeWindowChanged,
           onApply: _applyFilter,
@@ -287,7 +355,7 @@ class ViewerPageState extends State<ViewerPage> {
               onGroupSelected: _onGroupSelected,
               onRefresh: _loadGroups,
             ),
-            right: _loading
+            right: _loading && _events.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : LogTable(
                     events: _events,

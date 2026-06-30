@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'filter_constants.dart';
 import 'log_entry.dart';
 import 'property_filter.dart';
@@ -129,10 +131,12 @@ class LogFilter {
     }
     if (search != null) {
       clauses.add(
-        '(LOWER(message_template) LIKE ? OR LOWER(rendered_message) LIKE ? OR LOWER(exception) LIKE ?)',
+        '(LOWER(message_template) LIKE ? OR LOWER(rendered_message) LIKE ? '
+        'OR LOWER(exception) LIKE ? OR LOWER(properties) LIKE ? '
+        'OR LOWER(device_id) LIKE ?)',
       );
       final pattern = '%${search!.toLowerCase()}%';
-      parameters.addAll([pattern, pattern, pattern]);
+      parameters.addAll([pattern, pattern, pattern, pattern, pattern]);
     }
 
     final where = clauses.isEmpty ? '1=1' : clauses.join(' AND ');
@@ -171,16 +175,20 @@ class LogFilter {
       }
     }
     if (search != null) {
-      final q = search!.toLowerCase();
-      final haystacks = [
-        entry.messageTemplate,
-        entry.renderedMessage,
-        entry.exception,
-      ];
-      if (!haystacks.any((h) => h != null && h.toLowerCase().contains(q))) {
-        return false;
-      }
+      if (!_matchesSearch(entry, search!)) return false;
     }
     return true;
   }
+}
+
+bool _matchesSearch(LogEntry entry, String query) {
+  final q = query.toLowerCase();
+  final haystacks = <String?>[
+    entry.messageTemplate,
+    entry.renderedMessage,
+    entry.exception,
+    entry.deviceId,
+    if (entry.properties.isNotEmpty) jsonEncode(entry.properties),
+  ];
+  return haystacks.any((h) => h != null && h.toLowerCase().contains(q));
 }

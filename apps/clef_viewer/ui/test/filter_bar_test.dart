@@ -60,6 +60,15 @@ void main() {
     expect(applied, isFalse);
   });
 
+  testWidgets('FilterBar does not show Property text field', (tester) async {
+    await tester.pumpWidget(
+      _harness(initialFilter: const LogFilter(), onApply: (_) {}),
+    );
+
+    expect(find.text('Property (k=v; k2=v2)'), findsNothing);
+    expect(find.text('Search'), findsOneWidget);
+  });
+
   testWidgets('FilterBar does not show Event ID field', (tester) async {
     await tester.pumpWidget(
       _harness(initialFilter: const LogFilter(), onApply: (_) {}),

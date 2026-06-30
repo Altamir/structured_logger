@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'filter_constants.dart';
 import 'log_entry.dart';
 import '../utils/property_filter_codec.dart';
@@ -90,15 +92,7 @@ class LogFilter {
       }
     }
     if (search != null && search!.isNotEmpty) {
-      final q = search!.toLowerCase();
-      final haystacks = [
-        entry.messageTemplate,
-        entry.renderedMessage,
-        entry.exception,
-      ];
-      if (!haystacks.any((h) => h != null && h.toLowerCase().contains(q))) {
-        return false;
-      }
+      if (!_matchesSearch(entry, search!)) return false;
     }
     return true;
   }
@@ -124,4 +118,16 @@ class LogFilter {
       search: identical(search, _unset) ? this.search : search as String?,
     );
   }
+}
+
+bool _matchesSearch(LogEntry entry, String query) {
+  final q = query.toLowerCase();
+  final haystacks = <String?>[
+    entry.messageTemplate,
+    entry.renderedMessage,
+    entry.exception,
+    entry.deviceId,
+    if (entry.properties.isNotEmpty) jsonEncode(entry.properties),
+  ];
+  return haystacks.any((h) => h != null && h.toLowerCase().contains(q));
 }
