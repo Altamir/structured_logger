@@ -1,3 +1,8 @@
+## 1.2.0
+
+ - **FEAT**(interceptor): resolve and log query parameters from request options. ([6549c6e6](https://github.com/Altamir/structured_logger/commit/6549c6e65964ec1850f46adc05f4ae473f496549))
+ - **FEAT**(interceptor): queryParam.* e ofuscação de JWT. ([78c694e5](https://github.com/Altamir/structured_logger/commit/78c694e59a9b43bf2ba0c7087978208f8c4c10ec))
+
 ## 1.2.0-DEV.0
 
  - **FEAT**(interceptor): resolve and log query parameters from request options. ([6549c6e6](https://github.com/Altamir/structured_logger/commit/6549c6e65964ec1850f46adc05f4ae473f496549))
