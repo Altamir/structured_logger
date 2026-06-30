@@ -4,8 +4,11 @@ import '../models/filter_constants.dart';
 import '../models/log_entry.dart';
 import '../models/log_filter.dart';
 import '../theme/clef_design_system.dart';
+import 'level_filter_field.dart';
 
 class GroupPanel extends StatefulWidget {
+  final Set<String> selectedLevels;
+  final ValueChanged<Set<String>> onLevelsChanged;
   final String groupBy;
   final String timeBucket;
   final String propertyName;
@@ -18,6 +21,8 @@ class GroupPanel extends StatefulWidget {
 
   const GroupPanel({
     super.key,
+    required this.selectedLevels,
+    required this.onLevelsChanged,
     required this.groupBy,
     required this.timeBucket,
     required this.propertyName,
@@ -117,6 +122,19 @@ class _GroupPanelState extends State<GroupPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              ClefDs.spaceMd,
+              ClefDs.spaceMd,
+              ClefDs.spaceMd,
+              ClefDs.spaceSm,
+            ),
+            child: LevelFilterField(
+              selectedLevels: widget.selectedLevels,
+              onChanged: widget.onLevelsChanged,
+            ),
+          ),
+          const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               ClefDs.spaceMd,

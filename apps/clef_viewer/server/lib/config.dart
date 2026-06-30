@@ -7,6 +7,7 @@ class AppConfig {
   final String? ingestApiKey;
   final String? adminApiKey;
   final int maxRows;
+  final int queryMaxLimit;
   final String staticPath;
   final int maxEventBytes;
   final int maxBatchEvents;
@@ -20,6 +21,7 @@ class AppConfig {
     this.ingestApiKey,
     this.adminApiKey,
     required this.maxRows,
+    this.queryMaxLimit = 100000,
     required this.staticPath,
     required this.maxEventBytes,
     required this.maxBatchEvents,
@@ -35,6 +37,8 @@ class AppConfig {
     final adminApiKey = _emptyToNull(Platform.environment['ADMIN_API_KEY']);
     final maxRows =
         int.tryParse(Platform.environment['MAX_ROWS'] ?? '') ?? 100000;
+    final queryMaxLimit =
+        int.tryParse(Platform.environment['QUERY_MAX_LIMIT'] ?? '') ?? 100000;
     final staticPath = Platform.environment['STATIC_PATH'] ?? '../ui/build/web';
     final maxEventBytes =
         int.tryParse(Platform.environment['MAX_EVENT_BYTES'] ?? '') ?? 1048576;
@@ -67,6 +71,7 @@ class AppConfig {
       ingestApiKey: ingestApiKey,
       adminApiKey: adminApiKey,
       maxRows: maxRows,
+      queryMaxLimit: queryMaxLimit,
       staticPath: staticPath,
       maxEventBytes: maxEventBytes,
       maxBatchEvents: maxBatchEvents,

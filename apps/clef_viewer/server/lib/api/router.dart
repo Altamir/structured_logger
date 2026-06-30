@@ -31,7 +31,10 @@ Handler createHandler({
     broadcaster: broadcaster,
     config: config,
   );
-  final query = QueryHandler(repository: repository);
+  final query = QueryHandler(
+    repository: repository,
+    maxQueryLimit: config.queryMaxLimit,
+  );
   final group = GroupHandler(repository: repository);
   final admin = AdminHandler(
     repository: repository,

@@ -8,8 +8,12 @@ import 'errors.dart';
 
 class QueryHandler {
   final LogRepository repository;
+  final int maxQueryLimit;
 
-  QueryHandler({required this.repository});
+  QueryHandler({
+    required this.repository,
+    this.maxQueryLimit = 100000,
+  });
 
   Future<Response> handle(Request request) async {
     try {
@@ -20,7 +24,7 @@ class QueryHandler {
       var limit = int.tryParse(params['limit'] ?? '') ?? 100;
       var offset = int.tryParse(params['offset'] ?? '') ?? 0;
       if (limit < 1) limit = 1;
-      if (limit > 1000) limit = 1000;
+      if (limit > maxQueryLimit) limit = maxQueryLimit;
       if (offset < 0) offset = 0;
 
       final result =

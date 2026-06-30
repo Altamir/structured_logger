@@ -518,6 +518,17 @@ not-json
     });
   });
 
+  group('query limit', () {
+    test('accepts limit up to queryMaxLimit', () async {
+      final response = await http.get(
+        uri('/api/events', {'limit': '5000'}),
+      );
+      expect(response.statusCode, 200);
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      expect(body['limit'], 5000);
+    });
+  });
+
   group('CORS', () {
     test('OPTIONS preflight returns CORS headers', () async {
       final client = HttpClient();
