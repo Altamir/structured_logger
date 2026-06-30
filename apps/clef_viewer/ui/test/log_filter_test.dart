@@ -64,6 +64,23 @@ void main() {
   });
 
   group('LogFilter.toQueryParams', () {
+    test('search matches properties JSON and device id', () {
+      const filter = LogFilter(search: 'home');
+      const byProperty = LogEntry(
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        properties: {'Screen': 'Home'},
+      );
+      const byDevice = LogEntry(
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        deviceId: 'device-home',
+      );
+
+      expect(filter.matches(byProperty), isTrue);
+      expect(filter.matches(byDevice), isTrue);
+    });
+
     test('encodes multiple properties with semicolon', () {
       const filter = LogFilter(
         properties: ['UserId=42', 'Screen=Home'],

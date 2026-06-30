@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'filter_constants.dart';
 import 'log_entry.dart';
 import 'property_filter.dart';
+import 'timestamp_bounds.dart';
 import 'validation_exception.dart';
 
 export 'validation_exception.dart';
@@ -9,6 +12,9 @@ export 'validation_exception.dart';
 class LogFilter {
   final DateTime? from;
   final DateTime? to;
+  /// Raw query values for SQL TEXT compare (preserves client wall-clock axis).
+  final String? fromBound;
+  final String? toBound;
   final List<String>? levels;
   final String? deviceId;
   final String? eventId;
@@ -18,6 +24,8 @@ class LogFilter {
   const LogFilter({
     this.from,
     this.to,
+    this.fromBound,
+    this.toBound,
     this.levels,
     this.deviceId,
     this.eventId,
@@ -39,19 +47,16 @@ class LogFilter {
     final propertyFilters = PropertyFilterCodec.parseParam(params['property']);
 
     return LogFilter(
-      from: _parseDate(params['from']),
-      to: _parseDate(params['to']),
+      from: TimestampBounds.parseQueryParam(params['from']),
+      to: TimestampBounds.parseQueryParam(params['to']),
+      fromBound: _emptyToNull(params['from']),
+      toBound: _emptyToNull(params['to']),
       levels: levels,
       deviceId: _parseDeviceId(params['device_id']),
       eventId: _emptyToNull(params['event_id']),
       properties: propertyFilters,
       search: _emptyToNull(params['search']),
     );
-  }
-
-  static DateTime? _parseDate(String? value) {
-    if (value == null || value.isEmpty) return null;
-    return DateTime.parse(value).toUtc();
   }
 
   static String? _parseDeviceId(String? value) {
@@ -88,13 +93,13 @@ class LogFilter {
     final clauses = <String>[];
     final parameters = <Object?>[];
 
-    if (from != null) {
+    if (fromBound != null) {
       clauses.add('timestamp >= ?');
-      parameters.add(from!.toIso8601String());
+      parameters.add(fromBound!);
     }
-    if (to != null) {
+    if (toBound != null) {
       clauses.add('timestamp <= ?');
-      parameters.add(to!.toIso8601String());
+      parameters.add(toBound!);
     }
     if (levels != null && levels!.isNotEmpty) {
       final placeholders = List.filled(levels!.length, '?').join(', ');
@@ -126,10 +131,12 @@ class LogFilter {
     }
     if (search != null) {
       clauses.add(
-        '(LOWER(message_template) LIKE ? OR LOWER(rendered_message) LIKE ? OR LOWER(exception) LIKE ?)',
+        '(LOWER(message_template) LIKE ? OR LOWER(rendered_message) LIKE ? '
+        'OR LOWER(exception) LIKE ? OR LOWER(properties) LIKE ? '
+        'OR LOWER(device_id) LIKE ?)',
       );
       final pattern = '%${search!.toLowerCase()}%';
-      parameters.addAll([pattern, pattern, pattern]);
+      parameters.addAll([pattern, pattern, pattern, pattern, pattern]);
     }
 
     final where = clauses.isEmpty ? '1=1' : clauses.join(' AND ');
@@ -139,12 +146,12 @@ class LogFilter {
   /// Client-side match for SSE events (mirrors server filter logic).
   bool matches(LogEntry entry) {
     if (from != null) {
-      final ts = DateTime.parse(entry.timestamp).toUtc();
-      if (ts.isBefore(from!)) return false;
+      final ts = DateTime.parse(entry.timestamp).toLocal();
+      if (ts.isBefore(from!.toLocal())) return false;
     }
     if (to != null) {
-      final ts = DateTime.parse(entry.timestamp).toUtc();
-      if (ts.isAfter(to!)) return false;
+      final ts = DateTime.parse(entry.timestamp).toLocal();
+      if (ts.isAfter(to!.toLocal())) return false;
     }
     if (levels != null && levels!.isNotEmpty) {
       if (!levels!.contains(entry.level)) return false;
@@ -168,16 +175,20 @@ class LogFilter {
       }
     }
     if (search != null) {
-      final q = search!.toLowerCase();
-      final haystacks = [
-        entry.messageTemplate,
-        entry.renderedMessage,
-        entry.exception,
-      ];
-      if (!haystacks.any((h) => h != null && h.toLowerCase().contains(q))) {
-        return false;
-      }
+      if (!_matchesSearch(entry, search!)) return false;
     }
     return true;
   }
+}
+
+bool _matchesSearch(LogEntry entry, String query) {
+  final q = query.toLowerCase();
+  final haystacks = <String?>[
+    entry.messageTemplate,
+    entry.renderedMessage,
+    entry.exception,
+    entry.deviceId,
+    if (entry.properties.isNotEmpty) jsonEncode(entry.properties),
+  ];
+  return haystacks.any((h) => h != null && h.toLowerCase().contains(q));
 }

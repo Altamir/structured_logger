@@ -1,5 +1,6 @@
 import 'package:clef_viewer_ui/models/filter_constants.dart';
 import 'package:clef_viewer_ui/models/log_filter.dart';
+import 'package:clef_viewer_ui/models/viewer_time_window.dart';
 import 'package:clef_viewer_ui/utils/active_filter_chip_factory.dart';
 import 'package:clef_viewer_ui/widgets/active_filter_chips.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,7 @@ void main() {
             builder: (context) {
               final chips = ActiveFilterChipFactory.fromFilter(
                 filter,
+                const ViewerTimeWindow(),
                 (updated) => applied = updated,
               );
               return ActiveFilterChips(chips: chips);
@@ -44,7 +46,11 @@ void main() {
 
   test('factory shows empty sentinel as (empty)', () {
     const filter = LogFilter(deviceId: FilterConstants.emptySentinel);
-    final chips = ActiveFilterChipFactory.fromFilter(filter, (_) {});
+    final chips = ActiveFilterChipFactory.fromFilter(
+      filter,
+      const ViewerTimeWindow(),
+      (_) {},
+    );
     expect(chips.single.label, 'device: (empty)');
   });
 }

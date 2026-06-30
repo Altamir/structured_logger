@@ -3,18 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/filter_constants.dart';
-import '../models/level_options.dart';
 import '../models/log_filter.dart';
+import '../models/viewer_time_window.dart';
 import '../services/device_suggestion_cache.dart';
 import '../theme/clef_design_system.dart';
 import '../utils/active_filter_chip_factory.dart';
 import '../utils/property_filter_codec.dart';
 import 'active_filter_chips.dart';
 import 'device_id_field.dart';
-import 'level_filter_field.dart';
+import 'time_window_selector.dart';
 
 class FilterBar extends StatefulWidget {
   final LogFilter initialFilter;
+  final String initialSearch;
+  final ViewerTimeWindow timeWindow;
+  final ValueChanged<ViewerTimeWindow> onTimeWindowChanged;
   final ValueChanged<LogFilter> onApply;
   final VoidCallback onClear;
   final DeviceSuggestionCache? deviceCache;
@@ -22,6 +25,9 @@ class FilterBar extends StatefulWidget {
   const FilterBar({
     super.key,
     required this.initialFilter,
+    this.initialSearch = '',
+    required this.timeWindow,
+    required this.onTimeWindowChanged,
     required this.onApply,
     required this.onClear,
     this.deviceCache,
@@ -32,70 +38,92 @@ class FilterBar extends StatefulWidget {
 }
 
 class FilterBarState extends State<FilterBar> {
-  static const _textDebounce = Duration(milliseconds: 450);
+  static const _textDebounce = Duration(milliseconds: 400);
 
   late final TextEditingController _deviceController;
-  late final TextEditingController _propertyController;
   late final TextEditingController _searchController;
-  DateTime? _from;
-  DateTime? _to;
-  late Set<String> _selectedLevels;
   String? _validationError;
   LogFilter _appliedFilter = const LogFilter();
+  bool _searchLoading = false;
   Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
     _appliedFilter = widget.initialFilter;
-    _from = widget.initialFilter.from;
-    _to = widget.initialFilter.to;
-    _selectedLevels = LevelOptions.uiSelectionFromFilter(widget.initialFilter.levels);
     _deviceController = TextEditingController(
       text: _deviceIdToDisplay(widget.initialFilter.deviceId),
     );
-    _propertyController = TextEditingController(
-      text: PropertyFilterCodec.encodeField(widget.initialFilter.properties),
-    );
     _searchController = TextEditingController(
-      text: widget.initialFilter.search ?? '',
+      text: widget.initialSearch.isNotEmpty
+          ? widget.initialSearch
+          : (widget.initialFilter.search ?? ''),
     );
 
     if (widget.deviceCache == null) {
-      _deviceController.addListener(_scheduleDebouncedApply);
+      _deviceController.addListener(_scheduleDeviceDebounce);
     }
-    _propertyController.addListener(_scheduleDebouncedApply);
-    _searchController.addListener(_scheduleDebouncedApply);
+    _searchController.addListener(_scheduleSearchDebounce);
+  }
+
+  @override
+  void didUpdateWidget(FilterBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialFilter != widget.initialFilter) {
+      setState(() {
+        _appliedFilter = _appliedFilter.copyWith(
+          levels: widget.initialFilter.levels,
+          deviceId: widget.initialFilter.deviceId,
+          properties: widget.initialFilter.properties,
+        );
+        if (_deviceIdToDisplay(widget.initialFilter.deviceId) !=
+            _deviceController.text) {
+          _deviceController.text =
+              _deviceIdToDisplay(widget.initialFilter.deviceId);
+        }
+      });
+    }
+    if (oldWidget.timeWindow != widget.timeWindow) {
+      setState(() => _validationError = widget.timeWindow.validate());
+    }
   }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
     _deviceController.dispose();
-    _propertyController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _scheduleDebouncedApply() {
+  void _scheduleSearchDebounce() {
+    setState(() => _searchLoading = true);
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_textDebounce, () {
+      apply();
+      if (mounted) setState(() => _searchLoading = false);
+    });
+  }
+
+  void _scheduleDeviceDebounce() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(_textDebounce, apply);
   }
 
   LogFilter buildFilter() {
     return LogFilter(
-      from: _from,
-      to: _to,
-      levels: LevelOptions.filterFromUiSelection(_selectedLevels),
+      levels: widget.initialFilter.levels,
       deviceId: _deviceIdFromController(),
-      properties: PropertyFilterCodec.parseField(_propertyController.text),
+      properties: _appliedFilter.properties,
       search: _emptyToNull(_searchController.text),
     );
   }
 
   void apply() {
     final filter = buildFilter();
-    final error = filter.validate();
+    final timeError = widget.timeWindow.validate();
+    final filterError = filter.validate();
+    final error = timeError ?? filterError;
     setState(() => _validationError = error);
     if (error == null) {
       _appliedFilter = filter;
@@ -105,37 +133,53 @@ class FilterBarState extends State<FilterBar> {
 
   void applyPropertyFilter(String propertyParam) {
     final merged = PropertyFilterCodec.upsert(
-      PropertyFilterCodec.parseField(_propertyController.text),
+      _appliedFilter.properties,
       propertyParam,
     );
-    _propertyController.text = PropertyFilterCodec.encodeField(merged);
+    setState(() {
+      _appliedFilter = _appliedFilter.copyWith(properties: merged);
+    });
     apply();
   }
 
   /// Syncs controllers and active chips from an externally applied filter.
-  /// Does not call [onApply] — caller already updated page state.
-  void applyExternalFilter(LogFilter filter) {
-    _syncControllersFromFilter(filter);
+  void applyExternalFilter(
+    LogFilter filter, {
+    ViewerTimeWindow? timeWindow,
+    bool preserveSearch = false,
+    bool clearSearch = false,
+  }) {
+    _syncFromFilter(
+      filter,
+      timeWindow: timeWindow,
+      preserveSearch: preserveSearch,
+      clearSearch: clearSearch,
+    );
   }
 
   String? get validationError => _validationError;
 
-  void _syncControllersFromFilter(LogFilter filter, {bool notify = true}) {
+  void _syncFromFilter(
+    LogFilter filter, {
+    ViewerTimeWindow? timeWindow,
+    bool preserveSearch = false,
+    bool clearSearch = false,
+  }) {
     void update() {
-      _from = filter.from;
-      _to = filter.to;
-      _selectedLevels = LevelOptions.uiSelectionFromFilter(filter.levels);
       _deviceController.text = _deviceIdToDisplay(filter.deviceId);
-      _propertyController.text = PropertyFilterCodec.encodeField(filter.properties);
-      _searchController.text = filter.search ?? '';
+      if (clearSearch) {
+        _searchController.clear();
+      } else if (!preserveSearch) {
+        _searchController.text = filter.search ?? '';
+      }
       _validationError = null;
-      _appliedFilter = filter;
+      _appliedFilter = filter.copyWith(search: null);
+      _searchLoading = false;
     }
 
-    if (notify) {
-      setState(update);
-    } else {
-      update();
+    setState(update);
+    if (timeWindow != null) {
+      widget.onTimeWindowChanged(timeWindow);
     }
   }
 
@@ -162,108 +206,71 @@ class FilterBarState extends State<FilterBar> {
   }
 
   void _onActiveChipRemove(LogFilter updated) {
-    _syncControllersFromFilter(updated);
-    widget.onApply(updated);
+    final clearSearch =
+        (updated.search == null || updated.search!.isEmpty) &&
+            _searchController.text.isNotEmpty;
+    _syncFromFilter(
+      updated,
+      preserveSearch: !clearSearch,
+      clearSearch: clearSearch,
+    );
+    widget.onApply(updated.copyWith(search: _emptyToNull(_searchController.text)));
+  }
+
+  void _onTimeWindowChanged(ViewerTimeWindow window) {
+    widget.onTimeWindowChanged(window);
+    setState(() => _validationError = window.validate());
   }
 
   void _resetToDefaults() {
     setState(() {
-      _from = null;
-      _to = null;
-      _selectedLevels = LevelOptions.all.toSet();
       _deviceController.clear();
-      _propertyController.clear();
       _searchController.clear();
       _validationError = null;
       _appliedFilter = const LogFilter();
+      _searchLoading = false;
     });
     widget.onClear();
-  }
-
-  Future<void> _pickFrom() async {
-    final date = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      initialDate: _from ?? DateTime.now(),
-    );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_from ?? DateTime.now()),
-    );
-    if (time == null) return;
-    setState(() {
-      _from = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-    });
-    apply();
-  }
-
-  Future<void> _pickTo() async {
-    final date = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      initialDate: _to ?? DateTime.now(),
-    );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_to ?? DateTime.now()),
-    );
-    if (time == null) return;
-    setState(() {
-      _to = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-    });
-    apply();
   }
 
   @override
   Widget build(BuildContext context) {
     final activeChips = ActiveFilterChipFactory.fromFilter(
-      _appliedFilter,
+      _appliedFilter.copyWith(search: _emptyToNull(_searchController.text)),
+      widget.timeWindow,
       _onActiveChipRemove,
+      onClearTimeWindow: () {
+        widget.onTimeWindowChanged(
+          ViewerTimeWindow(liveSteady: widget.timeWindow.liveSteady),
+        );
+        apply();
+      },
     );
 
     return Container(
-      margin: const EdgeInsets.all(ClefDs.spaceMd),
-      padding: const EdgeInsets.all(ClefDs.spaceLg),
+      margin: const EdgeInsets.fromLTRB(
+        ClefDs.spaceMd,
+        ClefDs.spaceSm,
+        ClefDs.spaceMd,
+        ClefDs.spaceSm,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: ClefDs.spaceMd,
+        vertical: ClefDs.spaceSm,
+      ),
       decoration: ClefDs.surfaceCard(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          LevelFilterField(
-            selectedLevels: _selectedLevels,
-            onChanged: (levels) {
-              setState(() => _selectedLevels = levels);
-              apply();
-            },
-          ),
-          const SizedBox(height: ClefDs.spaceMd),
           Wrap(
             spacing: ClefDs.spaceSm,
             runSpacing: ClefDs.spaceSm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              OutlinedButton(
-                onPressed: _pickFrom,
-                child: Text(_from == null ? 'From' : _formatDateTime(_from!)),
-              ),
-              OutlinedButton(
-                onPressed: _pickTo,
-                child: Text(_to == null ? 'To' : _formatDateTime(_to!)),
+              TimeWindowSelector(
+                window: widget.timeWindow,
+                onChanged: _onTimeWindowChanged,
               ),
               if (widget.deviceCache != null)
                 DeviceIdField(
@@ -283,22 +290,23 @@ class FilterBarState extends State<FilterBar> {
                   ),
                 ),
               SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: _propertyController,
-                  decoration: ClefDs.inputDecoration(
-                    context: context,
-                    label: 'Property (k=v; k2=v2)',
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 200,
+                width: 260,
                 child: TextField(
                   controller: _searchController,
                   decoration: ClefDs.inputDecoration(
                     context: context,
                     label: 'Search',
+                    hintText: 'Message, properties, device…',
+                    suffixIcon: _searchLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
                   ),
                 ),
               ),
@@ -320,14 +328,6 @@ class FilterBarState extends State<FilterBar> {
         ],
       ),
     );
-  }
-
-  String _formatDateTime(DateTime dt) {
-    final local = dt.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}/'
-        '${local.month.toString().padLeft(2, '0')} '
-        '${local.hour.toString().padLeft(2, '0')}:'
-        '${local.minute.toString().padLeft(2, '0')}';
   }
 
   String? _emptyToNull(String value) =>

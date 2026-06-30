@@ -1,14 +1,27 @@
 import '../models/active_filter_chip_data.dart';
 import '../models/filter_constants.dart';
 import '../models/log_filter.dart';
+import '../models/viewer_time_window.dart';
 import 'property_filter_codec.dart';
 
 class ActiveFilterChipFactory {
   static List<ActiveFilterChipData> fromFilter(
     LogFilter filter,
-    void Function(LogFilter updated) onApply,
-  ) {
+    ViewerTimeWindow timeWindow,
+    void Function(LogFilter updated) onApply, {
+    void Function()? onClearTimeWindow,
+  }) {
     final chips = <ActiveFilterChipData>[];
+
+    if (timeWindow.kind == TimeWindowKind.customRange) {
+      chips.add(
+        ActiveFilterChipData(
+          id: 'time:range',
+          label: 'time: range',
+          onRemove: onClearTimeWindow ?? () {},
+        ),
+      );
+    }
 
     for (final level in filter.levels) {
       chips.add(

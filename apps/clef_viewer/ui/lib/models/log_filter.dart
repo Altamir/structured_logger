@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'filter_constants.dart';
 import 'log_entry.dart';
 import '../utils/property_filter_codec.dart';
+import '../utils/timestamp_bounds.dart';
 
 class LogFilter {
   final DateTime? from;
@@ -39,8 +42,8 @@ class LogFilter {
 
   Map<String, String> toQueryParams() {
     final params = <String, String>{};
-    if (from != null) params['from'] = from!.toUtc().toIso8601String();
-    if (to != null) params['to'] = to!.toUtc().toIso8601String();
+    if (from != null) params['from'] = TimestampBounds.toQueryParam(from!);
+    if (to != null) params['to'] = TimestampBounds.toQueryParam(to!);
     if (levels.isNotEmpty) params['levels'] = levels.join(',');
     if (deviceId != null) {
       params['device_id'] = deviceId!;
@@ -57,12 +60,12 @@ class LogFilter {
 
   bool matches(LogEntry entry) {
     if (from != null) {
-      final ts = DateTime.parse(entry.timestamp).toUtc();
-      if (ts.isBefore(from!)) return false;
+      final ts = TimestampBounds.compareInstant(DateTime.parse(entry.timestamp));
+      if (ts.isBefore(TimestampBounds.compareInstant(from!))) return false;
     }
     if (to != null) {
-      final ts = DateTime.parse(entry.timestamp).toUtc();
-      if (ts.isAfter(to!)) return false;
+      final ts = TimestampBounds.compareInstant(DateTime.parse(entry.timestamp));
+      if (ts.isAfter(TimestampBounds.compareInstant(to!))) return false;
     }
     if (levels.isNotEmpty && !levels.contains(entry.level)) return false;
     if (deviceId != null) {
@@ -89,15 +92,7 @@ class LogFilter {
       }
     }
     if (search != null && search!.isNotEmpty) {
-      final q = search!.toLowerCase();
-      final haystacks = [
-        entry.messageTemplate,
-        entry.renderedMessage,
-        entry.exception,
-      ];
-      if (!haystacks.any((h) => h != null && h.toLowerCase().contains(q))) {
-        return false;
-      }
+      if (!_matchesSearch(entry, search!)) return false;
     }
     return true;
   }
@@ -123,4 +118,16 @@ class LogFilter {
       search: identical(search, _unset) ? this.search : search as String?,
     );
   }
+}
+
+bool _matchesSearch(LogEntry entry, String query) {
+  final q = query.toLowerCase();
+  final haystacks = <String?>[
+    entry.messageTemplate,
+    entry.renderedMessage,
+    entry.exception,
+    entry.deviceId,
+    if (entry.properties.isNotEmpty) jsonEncode(entry.properties),
+  ];
+  return haystacks.any((h) => h != null && h.toLowerCase().contains(q));
 }

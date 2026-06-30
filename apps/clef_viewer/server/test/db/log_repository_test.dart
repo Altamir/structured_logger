@@ -29,6 +29,24 @@ void main() {
     );
   }
 
+  test('filters recent events with local ISO timestamp without Z', () async {
+    await repository.insert(
+      entry(ts: '2026-06-30T10:59:57.123'),
+    );
+    await repository.insert(
+      entry(ts: '2026-06-30T09:00:00.000'),
+    );
+
+    final filter = LogFilter(
+      from: DateTime.parse('2026-06-30T10:57:00.000'),
+      fromBound: '2026-06-30T10:57:00.000',
+    );
+    final result = await repository.query(filter, limit: 10);
+
+    expect(result.total, 1);
+    expect(result.events.single.timestamp, '2026-06-30T10:59:57.123');
+  });
+
   test('insert and query events', () async {
     await repository.insert(
       entry(ts: '2024-01-01T00:00:01Z', level: 'info'),

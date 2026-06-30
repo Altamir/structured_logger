@@ -8,7 +8,7 @@ Middleware corsMiddleware() {
       final corsHeaders = <String, String>{
         'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
         'Access-Control-Allow-Headers':
-            'Content-Type, X-Seq-ApiKey, Accept, Origin',
+            'Content-Type, X-Seq-ApiKey, Authorization, Accept, Origin',
         'Access-Control-Max-Age': '86400',
       };
 
