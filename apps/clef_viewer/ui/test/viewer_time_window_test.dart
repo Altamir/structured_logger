@@ -1,7 +1,7 @@
 import 'package:clef_viewer_ui/config/viewer_config.dart';
 import 'package:clef_viewer_ui/models/log_filter.dart';
 import 'package:clef_viewer_ui/models/viewer_time_window.dart';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ViewerTimeWindow', () {
