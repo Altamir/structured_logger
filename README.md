@@ -4,8 +4,8 @@
 
 This is the monorepo for **Structured Logger** — Dart-first structured logging with pluggable sinks (CLEF/Seq, console, etc.).
 
-- Core package: `packages/structured_logger` (Dart pure, v1.0.0+)
-- Dio interceptor: `packages/structured_logger_dio_interceptor` (new)
+- Core package: `packages/structured_logger` (Dart pure, v1.0.2)
+- Dio interceptor: `packages/structured_logger_dio_interceptor` (v1.2.0)
 - CLEF Viewer: `apps/clef_viewer/{server,ui}`
 - Docs: `docs/` (Dart-first) + website
 
@@ -32,7 +32,7 @@ Add the following to your pubspec.yaml file (or use the pub command):
 
 ```yaml
 dependencies:
-  structured_logger: ^1.0.0
+  structured_logger: ^1.0.2
 ```
 
 ## Basic Usage
