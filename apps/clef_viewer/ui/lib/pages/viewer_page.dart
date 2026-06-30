@@ -85,7 +85,7 @@ class ViewerPageState extends State<ViewerPage> {
   LogFilter _stripTime(LogFilter f) => f.copyWith(from: null, to: null);
 
   LogFilter _effectiveFilter() =>
-      _timeWindow.applyTo(_filter, DateTime.now().toUtc());
+      _timeWindow.applyTo(_filter, DateTime.now());
 
   void _startPolling() {
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {

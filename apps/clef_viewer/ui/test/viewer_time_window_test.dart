@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('ViewerTimeWindow', () {
     test('liveNow boot uses boot window', () {
-      final now = DateTime.utc(2026, 6, 30, 12, 0, 0);
+      final now = DateTime(2026, 6, 30, 12, 0, 0);
       const base = LogFilter();
       const window = ViewerTimeWindow(liveSteady: false);
 
@@ -20,7 +20,7 @@ void main() {
     });
 
     test('liveNow steady uses steady window', () {
-      final now = DateTime.utc(2026, 6, 30, 12, 0, 0);
+      final now = DateTime(2026, 6, 30, 12, 0, 0);
       const base = LogFilter();
       const window = ViewerTimeWindow(liveSteady: true);
 

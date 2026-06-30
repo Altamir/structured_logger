@@ -41,12 +41,12 @@ class ViewerTimeWindow {
   }
 
   /// Merges [base] with effective from/to for API queries and client-side match.
-  LogFilter applyTo(LogFilter base, DateTime nowUtc) {
+  LogFilter applyTo(LogFilter base, DateTime now) {
     switch (kind) {
       case TimeWindowKind.liveNow:
         final window = liveDuration();
         return base.copyWith(
-          from: nowUtc.subtract(window),
+          from: now.subtract(window),
           to: null,
         );
       case TimeWindowKind.customRange:

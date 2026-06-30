@@ -54,7 +54,7 @@ class TimeWindowSelector extends StatelessWidget {
   }
 
   void _selectPreset(Duration span) {
-    final now = DateTime.now().toUtc();
+    final now = DateTime.now();
     onChanged(
       ViewerTimeWindow(
         kind: TimeWindowKind.customRange,
@@ -83,8 +83,8 @@ class TimeWindowSelector extends StatelessWidget {
     onChanged(
       ViewerTimeWindow(
         kind: TimeWindowKind.customRange,
-        customFrom: from.toUtc(),
-        customTo: to.toUtc(),
+        customFrom: from,
+        customTo: to,
         liveSteady: window.liveSteady,
       ),
     );

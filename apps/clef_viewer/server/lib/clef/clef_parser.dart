@@ -47,11 +47,26 @@ class ClefParser {
 
   ClefParser({required this.maxEventBytes});
 
+  /// Canonical UTC `Z` when offset is present; keeps legacy local ISO as-is.
+  static String _normalizeTimestamp(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return DateTime.now().toUtc().toIso8601String();
+    }
+    if (trimmed.endsWith('Z') ||
+        trimmed.contains('+') ||
+        RegExp(r'-\d{2}:\d{2}$').hasMatch(trimmed)) {
+      return DateTime.parse(trimmed).toUtc().toIso8601String();
+    }
+    return trimmed;
+  }
+
   LogEntry parseObject(Map<String, dynamic> json) {
     _checkSize(json);
 
-    final timestamp =
-        json['@t'] as String? ?? DateTime.now().toUtc().toIso8601String();
+    final timestamp = _normalizeTimestamp(
+      json['@t'] as String? ?? DateTime.now().toUtc().toIso8601String(),
+    );
     final level = json['@l'] as String? ?? 'information';
 
     final properties = <String, dynamic>{};

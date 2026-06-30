@@ -25,6 +25,14 @@ void main() {
     expect(entry.properties.containsKey('@t'), isFalse);
   });
 
+  test('keeps legacy local @t without timezone suffix', () {
+    final entry = parser.parseObject({
+      '@t': '2026-06-30T10:59:57.123',
+      '@mt': 'test',
+    });
+    expect(entry.timestamp, '2026-06-30T10:59:57.123');
+  });
+
   test('defaults missing @t and @l', () {
     final before = DateTime.now().toUtc();
     final entry = parser.parseObject({'@mt': 'test'});
