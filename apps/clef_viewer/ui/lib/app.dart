@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'models/log_filter.dart';
 import 'pages/admin_page.dart';
+import 'pages/login_page.dart';
 import 'pages/viewer_page.dart';
+import 'services/auth_service.dart';
 import 'theme/clef_design_system.dart';
 import 'theme/clef_theme.dart';
 import 'widgets/stream_pause_button.dart';
@@ -17,13 +19,46 @@ class ClefViewerApp extends StatefulWidget {
 
 class _ClefViewerAppState extends State<ClefViewerApp> {
   final _viewerPageKey = GlobalKey<ViewerPageState>();
+  final _auth = AuthService();
 
   int _index = 0;
   LogFilter _sharedFilter = const LogFilter();
   bool _streamPaused = false;
+  bool _authenticated = AuthService.isAuthenticated;
+
+  @override
+  void initState() {
+    super.initState();
+    AuthService.onSessionExpired = _onSessionExpired;
+  }
+
+  @override
+  void dispose() {
+    if (AuthService.onSessionExpired == _onSessionExpired) {
+      AuthService.onSessionExpired = null;
+    }
+    super.dispose();
+  }
+
+  void _onSessionExpired() {
+    if (!mounted) return;
+    setState(() => _authenticated = false);
+  }
+
+  Future<void> _logout() async {
+    await _auth.logout();
+    if (!mounted) return;
+    setState(() => _authenticated = false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (!_authenticated) {
+      return LoginPage(
+        onSuccess: () => setState(() => _authenticated = true),
+      );
+    }
+
     return MaterialApp(
       title: 'CLEF Viewer - POC',
       theme: buildClefTheme(),
@@ -40,6 +75,11 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
                 isPaused: _streamPaused,
                 onPressed: () => _viewerPageKey.currentState?.togglePause(),
               ),
+            IconButton(
+              tooltip: 'Sair',
+              onPressed: _logout,
+              icon: const Icon(Icons.logout),
+            ),
             Padding(
               padding: const EdgeInsets.only(right: ClefDs.spaceMd),
               child: _SegmentedNav(

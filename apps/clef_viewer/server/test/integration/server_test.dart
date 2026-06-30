@@ -15,11 +15,43 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:structured_logger/structured_logger.dart';
 import 'package:test/test.dart';
 
+const _uiUsername = 'test-user';
+const _uiPassword = 'test-pass';
+
 void main() {
   late HttpServer server;
   late int port;
   late LogRepository repository;
   late EventBroadcaster broadcaster;
+  late String sessionToken;
+
+  Uri buildUri(String path, [Map<String, String>? query]) {
+    return Uri(
+      scheme: 'http',
+      host: 'localhost',
+      port: port,
+      path: path,
+      queryParameters: query,
+    );
+  }
+
+  Future<String> login({
+    String username = _uiUsername,
+    String password = _uiPassword,
+  }) async {
+    final response = await http.post(
+      buildUri('/api/auth/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'username': username, 'password': password}),
+    );
+    expect(response.statusCode, 200);
+    return (jsonDecode(response.body) as Map<String, dynamic>)['token']
+        as String;
+  }
+
+  Map<String, String> sessionHeaders() => {
+        'Authorization': 'Bearer $sessionToken',
+      };
 
   Future<void> startServer(AppConfig config) async {
     final db = openMemoryDatabase();
@@ -49,8 +81,11 @@ void main() {
         maxEventBytes: 1048576,
         maxBatchEvents: 1000,
         maxBatchBytes: 10485760,
+        uiUsername: _uiUsername,
+        uiPassword: _uiPassword,
       ),
     );
+    sessionToken = await login();
   });
 
   setUp(() async {
@@ -63,15 +98,47 @@ void main() {
     broadcaster.dispose();
   });
 
-  Uri uri(String path, [Map<String, String>? query]) {
-    return Uri(
-      scheme: 'http',
-      host: 'localhost',
-      port: port,
-      path: path,
-      queryParameters: query,
-    );
-  }
+  group('UI auth', () {
+    test('login returns token for valid credentials', () async {
+      final token = await login();
+      expect(token, isNotEmpty);
+    });
+
+    test('login returns 401 for invalid credentials', () async {
+      final response = await http.post(
+        buildUri('/api/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': 'wrong', 'password': 'wrong'}),
+      );
+      expect(response.statusCode, 401);
+    });
+
+    test('viewer endpoints require session', () async {
+      final unauthorized = await http.get(buildUri('/api/events'));
+      expect(unauthorized.statusCode, 401);
+
+      final authorized = await http.get(
+        buildUri('/api/events'),
+        headers: sessionHeaders(),
+      );
+      expect(authorized.statusCode, 200);
+    });
+
+    test('logout revokes session token', () async {
+      final token = await login();
+      final logout = await http.post(
+        buildUri('/api/auth/logout'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      expect(logout.statusCode, 204);
+
+      final afterLogout = await http.get(
+        buildUri('/api/events'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      expect(afterLogout.statusCode, 401);
+    });
+  });
 
   group('SinkSeq compatibility', () {
     test('accepts POST /api/events/raw?clef with CLEF body', () async {
@@ -84,7 +151,7 @@ void main() {
       });
 
       final response = await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -95,7 +162,7 @@ void main() {
       expect(response.statusCode, 201);
       expect(response.body, isEmpty);
 
-      final query = await http.get(uri('/api/events'));
+      final query = await http.get(buildUri('/api/events'), headers: sessionHeaders());
       final data = jsonDecode(query.body) as Map<String, dynamic>;
       final events = data['events'] as List<dynamic>;
       expect(events, hasLength(1));
@@ -116,7 +183,7 @@ void main() {
       });
 
       await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -124,7 +191,7 @@ void main() {
         body: body,
       );
 
-      final query = await http.get(uri('/api/events'));
+      final query = await http.get(buildUri('/api/events'), headers: sessionHeaders());
       final event = (jsonDecode(query.body) as Map<String, dynamic>)['events']
           .first as Map<String, dynamic>;
       expect(event['timestamp'], '2024-01-01T00:00:00.000Z');
@@ -135,7 +202,7 @@ void main() {
 
     test('ingest returns 401 without API key when configured', () async {
       final response = await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {'Content-Type': CONTENT_TYPE_CLEF},
         body: jsonEncode({'@mt': 'test'}),
       );
@@ -144,7 +211,7 @@ void main() {
 
     test('ingest returns 401 with wrong API key', () async {
       final response = await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'wrong-key',
@@ -158,7 +225,7 @@ void main() {
   group('ingest validation', () {
     test('malformed JSON returns 400 and does not persist', () async {
       final response = await http.post(
-        uri('/ingest/clef'),
+        buildUri('/ingest/clef'),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -180,7 +247,7 @@ void main() {
 ''';
 
       final response = await http.post(
-        uri('/ingest/clef'),
+        buildUri('/ingest/clef'),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -198,7 +265,7 @@ not-json
 ''';
 
       final response = await http.post(
-        uri('/ingest/clef'),
+        buildUri('/ingest/clef'),
         headers: {
           'Content-Type': 'application/x-ndjson',
           SEQ_API_KEY: 'ingest-key',
@@ -218,7 +285,7 @@ not-json
 ''';
 
       final response = await http.post(
-        uri('/ingest/clef'),
+        buildUri('/ingest/clef'),
         headers: {
           'Content-Type': 'application/x-ndjson',
           SEQ_API_KEY: 'ingest-key',
@@ -232,11 +299,11 @@ not-json
     });
 
     test('admin requires API key', () async {
-      final unauthorized = await http.delete(uri('/api/admin/logs'));
+      final unauthorized = await http.delete(buildUri('/api/admin/logs'));
       expect(unauthorized.statusCode, 401);
 
       final authorized = await http.delete(
-        uri('/api/admin/logs'),
+        buildUri('/api/admin/logs'),
         headers: {SEQ_API_KEY: 'admin-key'},
       );
       expect(authorized.statusCode, 200);
@@ -246,7 +313,7 @@ not-json
       final now = DateTime.now().toUtc().toIso8601String();
       for (var i = 0; i < 3; i++) {
         await http.post(
-          uri('/api/events/raw', {'clef': ''}),
+          buildUri('/api/events/raw', {'clef': ''}),
           headers: {
             'Content-Type': CONTENT_TYPE_CLEF,
             SEQ_API_KEY: 'ingest-key',
@@ -259,11 +326,11 @@ not-json
         );
       }
 
-      final unauthorized = await http.get(uri('/api/admin/stats'));
+      final unauthorized = await http.get(buildUri('/api/admin/stats'));
       expect(unauthorized.statusCode, 401);
 
       final response = await http.get(
-        uri('/api/admin/stats'),
+        buildUri('/api/admin/stats'),
         headers: {SEQ_API_KEY: 'admin-key'},
       );
       expect(response.statusCode, 200);
@@ -277,7 +344,7 @@ not-json
 
     test('export returns NDJSON CLEF lines', () async {
       await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -290,7 +357,7 @@ not-json
       );
 
       final response = await http.get(
-        uri('/api/admin/export'),
+        buildUri('/api/admin/export'),
         headers: {SEQ_API_KEY: 'admin-key'},
       );
 
@@ -308,7 +375,7 @@ not-json
 
     test('group by level returns counts', () async {
       await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -317,7 +384,7 @@ not-json
             {'@mt': 'a', '@l': 'error', '@t': '2024-01-01T00:00:00Z'}),
       );
       await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -327,7 +394,8 @@ not-json
       );
 
       final response = await http.get(
-        uri('/api/events/group', {'group_by': 'level'}),
+        buildUri('/api/events/group', {'group_by': 'level'}),
+        headers: sessionHeaders(),
       );
       expect(response.statusCode, 200);
       final groups = (jsonDecode(response.body)
@@ -337,10 +405,11 @@ not-json
 
     test('rejects malicious property key in group API', () async {
       final response = await http.get(
-        uri('/api/events/group', {
+        buildUri('/api/events/group', {
           'group_by': 'property',
           'group_property': "x') OR 1=1 --",
         }),
+        headers: sessionHeaders(),
       );
       expect(response.statusCode, 400);
     });
@@ -348,7 +417,7 @@ not-json
     test('groups by group_property while filtering on property param',
         () async {
       await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -362,7 +431,7 @@ not-json
         }),
       );
       await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -377,11 +446,12 @@ not-json
       );
 
       final response = await http.get(
-        uri('/api/events/group', {
+        buildUri('/api/events/group', {
           'group_by': 'property',
           'group_property': 'Screen',
           'property': 'UserId=42',
         }),
+        headers: sessionHeaders(),
       );
       expect(response.statusCode, 200);
       final groups = (jsonDecode(response.body)
@@ -391,7 +461,7 @@ not-json
 
     test('filters empty device via sentinel', () async {
       await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -404,7 +474,7 @@ not-json
         }),
       );
       await http.post(
-        uri('/api/events/raw', {'clef': ''}),
+        buildUri('/api/events/raw', {'clef': ''}),
         headers: {
           'Content-Type': CONTENT_TYPE_CLEF,
           SEQ_API_KEY: 'ingest-key',
@@ -418,7 +488,8 @@ not-json
       );
 
       final response = await http.get(
-        uri('/api/events', {'device_id': FilterConstants.emptySentinel}),
+        buildUri('/api/events', {'device_id': FilterConstants.emptySentinel}),
+        headers: sessionHeaders(),
       );
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       expect(data['total'], 1);
@@ -428,7 +499,8 @@ not-json
   group('SSE', () {
     test('stream endpoint returns text/event-stream', () async {
       final client = HttpClient();
-      final request = await client.getUrl(uri('/api/events/stream'));
+      final request = await client.getUrl(buildUri('/api/events/stream'));
+      request.headers.set('Authorization', 'Bearer $sessionToken');
       final response = await request.close();
       expect(response.statusCode, 200);
       expect(response.headers.contentType?.mimeType, 'text/event-stream');
@@ -437,7 +509,8 @@ not-json
 
     test('stream delivers connected comment over real TCP', () async {
       final client = HttpClient();
-      final request = await client.getUrl(uri('/api/events/stream'));
+      final request = await client.getUrl(buildUri('/api/events/stream'));
+      request.headers.set('Authorization', 'Bearer $sessionToken');
       final response = await request.close();
       expect(response.statusCode, 200);
 
@@ -470,16 +543,33 @@ not-json
           maxEventBytes: 1048576,
           maxBatchEvents: 1000,
           maxBatchBytes: 10485760,
+          uiUsername: _uiUsername,
+          uiPassword: _uiPassword,
         ),
         repository: repo,
         broadcaster: bc,
       );
 
+      final loginResponse = await handler(
+        Request(
+          'POST',
+          Uri.parse('http://localhost/api/auth/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'username': _uiUsername, 'password': _uiPassword}),
+        ),
+      );
+      final token = (jsonDecode(await loginResponse.readAsString())
+          as Map<String, dynamic>)['token'] as String;
+
       final completer = Completer<void>();
       var buffer = '';
 
       final sseResponse = await handler(
-        Request('GET', Uri.parse('http://localhost/api/events/stream')),
+        Request(
+          'GET',
+          Uri.parse('http://localhost/api/events/stream'),
+          headers: {'Authorization': 'Bearer $token'},
+        ),
       );
       expect(sseResponse.statusCode, 200);
       expect(
@@ -521,7 +611,8 @@ not-json
   group('query limit', () {
     test('accepts limit up to queryMaxLimit', () async {
       final response = await http.get(
-        uri('/api/events', {'limit': '5000'}),
+        buildUri('/api/events', {'limit': '5000'}),
+        headers: sessionHeaders(),
       );
       expect(response.statusCode, 200);
       final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -534,7 +625,7 @@ not-json
       final client = HttpClient();
       final request = await client.openUrl(
         'OPTIONS',
-        uri('/api/events'),
+        buildUri('/api/events'),
       );
       request.headers.set('Origin', 'http://localhost:8080');
       request.headers.set('Access-Control-Request-Method', 'GET');
@@ -568,6 +659,8 @@ not-json
           maxEventBytes: 50,
           maxBatchEvents: 2,
           maxBatchBytes: 200,
+          uiUsername: _uiUsername,
+          uiPassword: _uiPassword,
         ),
         repository: limitRepo,
         broadcaster: EventBroadcaster(),

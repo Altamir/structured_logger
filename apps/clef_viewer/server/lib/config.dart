@@ -14,6 +14,8 @@ class AppConfig {
   final int maxBatchBytes;
   final bool devMode;
   final String version;
+  final String uiUsername;
+  final String uiPassword;
 
   const AppConfig({
     required this.port,
@@ -28,6 +30,8 @@ class AppConfig {
     required this.maxBatchBytes,
     this.devMode = false,
     this.version = 'dev',
+    required this.uiUsername,
+    required this.uiPassword,
   });
 
   factory AppConfig.fromEnvironment() {
@@ -49,6 +53,18 @@ class AppConfig {
             (10 * 1048576);
     final devMode = Platform.environment['DEV_MODE'] == 'true';
     final version = Platform.environment['CLEF_VIEWER_VERSION'] ?? 'dev';
+    final uiUsername = Platform.environment['UI_USERNAME'];
+    final uiPassword = Platform.environment['UI_PASSWORD'];
+
+    if (uiUsername == null ||
+        uiUsername.isEmpty ||
+        uiPassword == null ||
+        uiPassword.isEmpty) {
+      stderr.writeln(
+        'ERROR: UI_USERNAME and UI_PASSWORD must be set.',
+      );
+      exit(1);
+    }
 
     if (adminApiKey == null && !devMode) {
       stderr.writeln(
@@ -78,6 +94,8 @@ class AppConfig {
       maxBatchBytes: maxBatchBytes,
       devMode: devMode,
       version: version,
+      uiUsername: uiUsername,
+      uiPassword: uiPassword,
     );
   }
 

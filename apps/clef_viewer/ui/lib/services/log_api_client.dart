@@ -6,6 +6,7 @@ import '../config/api_config.dart';
 import '../models/admin_stats.dart';
 import '../models/log_entry.dart';
 import '../models/log_filter.dart';
+import 'auth_service.dart';
 
 class LogApiClient {
   final String baseUrl;
@@ -25,7 +26,11 @@ class LogApiClient {
       ..['offset'] = '$offset';
 
     final uri = ApiConfig.uri('/api/events', queryParameters: params);
-    final response = await _client.get(uri);
+    final response = await _client.get(uri, headers: AuthService.authHeaders());
+    if (response.statusCode == 401) {
+      AuthService.handleUnauthorized();
+      throw SessionUnauthorizedException();
+    }
     if (response.statusCode != 200) {
       throw Exception('Failed to fetch events: ${response.statusCode}');
     }
@@ -45,7 +50,11 @@ class LogApiClient {
     if (groupProperty != null) params['group_property'] = groupProperty;
 
     final uri = ApiConfig.uri('/api/events/group', queryParameters: params);
-    final response = await _client.get(uri);
+    final response = await _client.get(uri, headers: AuthService.authHeaders());
+    if (response.statusCode == 401) {
+      AuthService.handleUnauthorized();
+      throw SessionUnauthorizedException();
+    }
     if (response.statusCode != 200) {
       throw Exception('Failed to fetch groups: ${response.statusCode}');
     }
@@ -118,3 +127,5 @@ class HealthStatus {
 }
 
 class UnauthorizedException implements Exception {}
+
+class SessionUnauthorizedException implements Exception {}

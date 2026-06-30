@@ -5,16 +5,19 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
 
+import '../auth/session_store.dart';
 import '../clef/clef_parser.dart';
 import '../clef/clef_serializer.dart';
 import '../config.dart';
 import '../db/log_repository.dart';
 import '../stream/event_broadcaster.dart';
 import 'admin_handler.dart';
+import 'auth_handler.dart';
 import 'group_handler.dart';
 import 'ingest_handler.dart';
 import 'middleware/api_key_middleware.dart';
 import 'middleware/cors_middleware.dart';
+import 'middleware/session_middleware.dart';
 import 'query_handler.dart';
 import 'sse_handler.dart';
 
@@ -42,6 +45,8 @@ Handler createHandler({
     dbPath: config.dbPath,
   );
   final sse = SseHandler(broadcaster: broadcaster);
+  final sessionStore = SessionStore();
+  final auth = AuthHandler(config: config, sessionStore: sessionStore);
 
   final ingestAuth = apiKeyMiddleware(
     expectedKey: config.ingestApiKey,
@@ -51,6 +56,7 @@ Handler createHandler({
     expectedKey: config.adminApiKey,
     required: config.adminApiKey != null,
   );
+  final sessionAuth = sessionMiddleware(sessionStore: sessionStore);
 
   final router = Router();
 
@@ -62,9 +68,20 @@ Handler createHandler({
     '/ingest/clef',
     (Request request) => ingestAuth((r) => ingest.handleIngestClef(r))(request),
   );
-  router.get('/api/events', query.handle);
-  router.get('/api/events/group', group.handle);
-  router.get('/api/events/stream', sse.handle);
+  router.post('/api/auth/login', auth.login);
+  router.post('/api/auth/logout', auth.logout);
+  router.get(
+    '/api/events',
+    (Request request) => sessionAuth((r) => query.handle(r))(request),
+  );
+  router.get(
+    '/api/events/group',
+    (Request request) => sessionAuth((r) => group.handle(r))(request),
+  );
+  router.get(
+    '/api/events/stream',
+    (Request request) => sessionAuth((r) => sse.handle(r))(request),
+  );
   router.delete(
     '/api/admin/logs',
     (Request request) => adminAuth((r) => admin.deleteLogs(r))(request),
