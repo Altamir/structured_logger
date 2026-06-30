@@ -22,7 +22,15 @@ Adicione ao `pubspec.yaml` (ou use o comando):
 
 ```yaml
 dependencies:
-  structured_logger: ^1.0.0
+  structured_logger: ^1.0.2
+```
+
+Para logging HTTP com Dio, adicione também o interceptador:
+
+```yaml
+dependencies:
+  structured_logger: ^1.0.2
+  structured_logger_dio_interceptor: ^1.2.0
 ```
 
 Em seguida, baixe as dependências:
