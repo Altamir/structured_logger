@@ -162,16 +162,15 @@ In **Settings → Actions → General → Workflow permissions**:
 
 Without step 2, `gh pr create` fails with `GitHub Actions is not permitted to create or approve pull requests`.
 
-### Why publish runs on tag push (not in the merge job)
+### Why publish is dispatched (not inline in the merge job)
 
-pub.dev OIDC **rejects** `dart pub publish` from `pull_request` events. Automated releases in `ci.yml` only push tags; [`publish.yml`](.github/workflows/publish.yml) publishes when those tags arrive (`push` event). See [dart.dev/go/publishing-from-github](https://dart.dev/go/publishing-from-github).
+pub.dev OIDC **rejects** `dart pub publish` from `pull_request` events. After `ci.yml` pushes tags, it dispatches [`publish.yml`](.github/workflows/publish.yml) via `workflow_dispatch` with `publish_sha`.
 
-If publish failed after tags were created, re-run **Actions → Publish to pub.dev** manually, or delete and re-push the tag:
+Tags pushed by `GITHUB_TOKEN` in CI **do not** trigger other workflows (GitHub anti-recursion), so `on: push: tags` alone is not enough for automated releases.
 
-```bash
-git push origin :refs/tags/v1.0.1-dev.6   # delete remote tag
-git push origin v1.0.1-dev.6               # push again → triggers publish.yml
-```
+If publish failed after a release, run **Actions → Publish to pub.dev → Run workflow** with:
+
+- **publish_sha**: the release commit SHA (from the `stable-release` or `prerelease-release` job log)
 
 ### Prerequisites (pub.dev Automated publishing) — IMPORTANT
 

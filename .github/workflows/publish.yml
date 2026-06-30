@@ -1,8 +1,11 @@
 name: Publish to pub.dev
 
 # pub.dev OIDC only allows publish from:
-#   - push of a git tag (automated releases from ci.yml)
-#   - workflow_dispatch (manual)
+#   - push of a git tag (manual tag push by a user)
+#   - workflow_dispatch (manual or triggered by ci.yml after release)
+#
+# Tags pushed by GITHUB_TOKEN in CI do NOT trigger this workflow (GitHub
+# anti-recursion). ci.yml dispatches workflow_dispatch with publish_sha instead.
 # See: https://dart.dev/tools/pub/automated-publishing
 #
 # Tag pattern on pub.dev (both packages): v{{version}}
@@ -10,6 +13,11 @@ name: Publish to pub.dev
 on:
   workflow_dispatch:
     inputs:
+      publish_sha:
+        description: 'Publish packages at this commit SHA (CI release; skips versioning)'
+        required: false
+        default: ''
+        type: string
       package:
         description: 'Which package(s) to publish'
         required: true
@@ -43,8 +51,44 @@ permissions:
   id-token: write
 
 jobs:
+  publish-from-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_sha != ''
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.publish_sha }}
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get root dependencies
+        run: dart pub get
+
+      - name: Activate Melos
+        run: dart pub global activate melos --version 8.0.0
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      - name: Publish to pub.dev (core first)
+        run: |
+          dart pub publish --directory packages/structured_logger --force
+          dart pub publish --directory packages/structured_logger_dio_interceptor --force
+
   release:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_sha == ''
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

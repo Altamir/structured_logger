@@ -156,6 +156,14 @@ jobs:
           git push origin HEAD:pre-release --follow-tags
           git push --tags
 
+      - name: Trigger pub.dev publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run publish.yml \
+            --ref master \
+            -f publish_sha="$(git rev-parse HEAD)"
+
       - name: Create GitHub Releases (as pre-release)
         run: |
           TAGS=$(git tag --points-at HEAD | grep '^v' || true)
@@ -282,10 +290,18 @@ jobs:
             --title "chore(release): version bump from workflow" \
             --body "Automated stable version bump after merging PR #${{ github.event.pull_request.number }}.
 
-          Merge this PR to sync \`master\` pubspec versions. Tags were pushed; pub.dev publish runs from tag push via publish.yml.")
+          Merge this PR to sync \`master\` pubspec versions. Tags were pushed; pub.dev publish was dispatched via publish.yml.")
 
           echo "Opened version bump PR: ${PR_URL}"
           echo "version_pr_url=${PR_URL}" >> "${GITHUB_OUTPUT}"
+
+      - name: Trigger pub.dev publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run publish.yml \
+            --ref master \
+            -f publish_sha="$(git rev-parse HEAD)"
 
       - name: Sync graduated versions back to pre-release
         run: git push origin HEAD:pre-release
