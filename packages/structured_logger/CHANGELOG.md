@@ -1,3 +1,7 @@
+## 1.0.2
+
+ - **FIX**(clef-viewer): alinha filtro Now com timestamp CLEF. ([9cfdb097](https://github.com/Altamir/structured_logger/commit/9cfdb09729bdc8fb50f663eb01ddcbf40e139d63))
+
 ## 1.0.2-DEV.0
 
  - **FIX**(clef-viewer): alinha filtro Now com timestamp CLEF. ([9cfdb097](https://github.com/Altamir/structured_logger/commit/9cfdb09729bdc8fb50f663eb01ddcbf40e139d63))
