@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'dart_repr_parser.dart';
+
 abstract final class JsonDisplayHelper {
   static const previewMaxChars = 400;
   static const previewMaxLines = 6;
@@ -49,8 +51,9 @@ abstract final class JsonDisplayHelper {
   }
 
   static dynamic _normalizeForEncoding(dynamic value) {
-    if (value is Map || value is List) return value;
-    if (value is String) return _tryParseJsonString(value);
+    final normalized = DartReprParser.normalizeValue(value);
+    if (normalized is Map || normalized is List) return normalized;
+    if (normalized is String) return _tryParseJsonString(normalized);
     return null;
   }
 }

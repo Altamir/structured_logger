@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../utils/clipboard_helper.dart';
 
 Future<void> showJsonPreviewDialog(
   BuildContext context, {
@@ -29,24 +30,9 @@ Future<void> showJsonPreviewDialog(
         ),
         FilledButton(
           onPressed: () async {
-            final messenger = ScaffoldMessenger.of(context);
-            try {
-              await Clipboard.setData(ClipboardData(text: content));
-              if (dialogContext.mounted) Navigator.pop(dialogContext);
-              if (context.mounted) {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Copiado'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
-            } catch (_) {
-              if (context.mounted) {
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('Falha ao copiar')),
-                );
-              }
+            final copied = await copyTextToClipboard(context, content);
+            if (copied && dialogContext.mounted) {
+              Navigator.pop(dialogContext);
             }
           },
           child: const Text('Copiar'),
