@@ -1,6 +1,5 @@
-import 'dart:convert';
-
 import '../models/log_entry.dart';
+import 'json_display_helper.dart';
 import 'message_template_renderer.dart';
 
 class LogCopyFormatter {
@@ -18,7 +17,8 @@ class LogCopyFormatter {
     }
 
     if (entry.properties.isNotEmpty) {
-      lines.add('properties: ${jsonEncode(entry.properties)}');
+      lines.add('properties:');
+      lines.add(JsonDisplayHelper.toPrettyJson(entry.properties));
     }
 
     return lines.join('\n');

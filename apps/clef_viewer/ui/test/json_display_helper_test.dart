@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:clef_viewer_ui/utils/json_display_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -45,6 +47,20 @@ void main() {
       final preview = JsonDisplayHelper.previewText(long);
       expect(preview.endsWith('…'), isTrue);
       expect(preview.length, lessThanOrEqualTo(401));
+    });
+
+    test('toPrettyJson normalizes dart repr strings in lists', () {
+      const address =
+          'CustomerAddress({id: 1, principal: true, street: Main St, number: 10})';
+      final pretty = JsonDisplayHelper.toPrettyJson({
+        'addresses': [address],
+      });
+
+      final decoded = jsonDecode(pretty) as Map<String, dynamic>;
+      final addresses = decoded['addresses'] as List<dynamic>;
+      expect(addresses.first, isA<Map<String, dynamic>>());
+      expect(addresses.first['street'], 'Main St');
+      expect(pretty, contains('\n'));
     });
   });
 }
