@@ -60,11 +60,11 @@ class _ClefViewerAppState extends State<ClefViewerApp> {
     }
 
     return MaterialApp(
-      title: 'CLEF Viewer - POC',
+      title: 'Estruture Log Viewer',
       theme: buildClefTheme(),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('CLEF Viewer'),
+          title: const Text('Estruture Log Viewer'),
           bottom: const PreferredSize(
             preferredSize: Size.fromHeight(28),
             child: VersionBar(),

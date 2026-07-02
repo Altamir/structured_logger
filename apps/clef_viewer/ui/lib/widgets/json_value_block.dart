@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/clef_design_system.dart';
+import '../utils/clipboard_helper.dart';
 import '../utils/json_display_helper.dart';
 import 'json_preview_dialog.dart';
 
@@ -15,6 +16,10 @@ class JsonValueBlock extends StatelessWidget {
     required this.value,
     this.truncate = true,
   });
+
+  Future<void> _copyJson(BuildContext context, String prettyJson) {
+    return copyTextToClipboard(context, prettyJson);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +36,25 @@ class JsonValueBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(propertyKey, style: theme.textTheme.bodySmall),
+          Row(
+            children: [
+              Expanded(
+                child: Text(propertyKey, style: theme.textTheme.bodySmall),
+              ),
+              Semantics(
+                label: 'Copiar JSON de $propertyKey',
+                button: true,
+                child: IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  tooltip: 'Copiar JSON',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: () => _copyJson(context, prettyJson),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: ClefDs.spaceXs),
           Container(
             width: double.infinity,

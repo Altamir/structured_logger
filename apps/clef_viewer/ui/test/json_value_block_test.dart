@@ -1,5 +1,6 @@
 import 'package:clef_viewer_ui/widgets/json_value_block.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -43,6 +44,35 @@ void main() {
     expect(find.text('Data'), findsWidgets);
     expect(find.text('Fechar'), findsOneWidget);
     expect(find.text('Copiar'), findsOneWidget);
+  });
+
+  testWidgets('copy button copies formatted json', (tester) async {
+    final copied = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied.add(call.arguments['text'] as String);
+      }
+      return null;
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: JsonValueBlock(
+            propertyKey: 'Payload',
+            value: {'a': 1},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Copiar JSON'));
+    await tester.pump();
+
+    expect(copied, hasLength(1));
+    expect(copied.first, contains('"a": 1'));
+    expect(copied.first, contains('\n'));
   });
 
   testWidgets('truncate false shows full content without button', (tester) async {
